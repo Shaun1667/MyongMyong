@@ -9,8 +9,9 @@
 **/[Ll]ibrary/
 **/[Tt]emp/
 **/[Oo]bj/
-**/[Bb]uild/
-**/[Bb]uilds/
+/MyongMyong/[Bb]uild/
+/MyongMyong/[Bb]uilds/
+/[Bb]uilds/
 **/[Ll]ogs/
 **/[Uu]ser[Ss]ettings/
 *.log
@@ -136,3 +137,6 @@ crashlytics-build.properties
 
 # Auto-generated cache in Assets folder
 /[Aa]ssets/[Ss]ceneDependencyCache*
+
+# 캡처 (Claude 확인용)
+/MyongMyong/Screenshots/

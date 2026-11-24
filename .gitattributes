@@ -1,0 +1,24 @@
+# 줄바꿈 고정 (MY_DEV_GUIDE 0번) — Unity YAML 에셋과 코드
+* text=auto
+*.cs text eol=crlf
+*.md text eol=crlf
+*.json text eol=crlf
+*.asmdef text eol=crlf
+*.unity text eol=lf merge=unityyamlmerge
+*.prefab text eol=lf merge=unityyamlmerge
+*.asset text eol=lf merge=unityyamlmerge
+*.mat text eol=lf
+*.anim text eol=lf
+*.controller text eol=lf
+*.meta text eol=lf
+*.inputactions text eol=crlf
+*.csv text eol=crlf
+# 바이너리
+*.png binary
+*.jpg binary
+*.psd binary
+*.fbx binary
+*.wav binary
+*.ogg binary
+*.ttf binary
+*.otf binary

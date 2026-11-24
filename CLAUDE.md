@@ -34,7 +34,7 @@
 | 항목 | 값 | 상태 |
 |---|---|---|
 | 엔진 | Unity 6000.3.25f1 | 확정 2026-11-24, 변경 금지 |
-| 렌더 | URP 17.3 (2D 렌더러로 전환 예정 — Phase 0) | 확정 2026-11-24 |
+| 렌더 | URP 17.3 · 2D 렌더러(`Assets/_Game/Settings/Myong2D_RPAsset.asset`, 그래픽 기본값 + 모든 품질 단계에 지정) | 확정 2026-11-24 |
 | 입력 | Input System 1.20 (키보드 · 패드 · 가상 조이스틱) | 확정 2026-11-24, 변경 금지 |
 | UI | uGUI | 정한 것 (Claude, 확인 필요) |
 | 플랫폼 | PC + 모바일 | 결정 2026-11-24, 사용자 |
@@ -50,7 +50,9 @@ MyongMyong/Assets/_Game/
   Scripts/Editor/    에디터 도구 · Setup 메뉴 · 디버그 창 (Myong.Editor.asmdef, Editor 전용)
   Data/              ScriptableObject 데이터 에셋 (수치 · 콘텐츠 표)
   Text/              텍스트 표 (키 → 한국어 · 영어)
-  Art/               도트 · 캐릭터 파츠 · 애니메이션
+  Art/               도트 · 캐릭터 파츠 · 애니메이션 (여기 텍스처는 임포트 규칙이 자동 적용)
+  Prefabs/           프리팹 (Player.prefab — Setup 메뉴가 만든다)
+  Settings/          2D 렌더러 · 파이프라인 에셋
   Scenes/
   Tests/EditMode/    단위 테스트 (Myong.Tests.asmdef)
 ```
@@ -60,6 +62,16 @@ MyongMyong/Assets/_Game/
 - 화면에 보이는 모든 글은 텍스트 표 한곳 — 코드 · 프리팹 · 데이터에 문장 금지, 코드는 `Text.Get(키)`, 문장을 이어 붙이지 않고 `{0}` 자리표시자 (MY_DEV_GUIDE 1번). 키 규칙 `분류.대상.용도`.
 - 개발자 디버그 기능은 에디터 디버그 창(메뉴 `Myong/Debug/Debug Window`)에 섹션으로, 게임 쪽 진입점은 `GameRoot.DebugXxx`, 상태를 바꾸면 [상태 변경] 표시 (MY_DEV_GUIDE 2번).
 - 입력은 한 곳에서만 읽는다(PC 키보드 · 패드 · 모바일 가상 조이스틱을 같은 이동 벡터로).
+- 텍스트는 `Myong.Core.Text` 한 곳, 데이터 `Assets/_Game/Text/strings.csv`(key,ko,en), 새 글 = 표 한 줄. 화면 라벨은 `LocalizedLabel`에 키만, 글꼴은 `UiFont` 한 곳. UI 코드에서 `using UnityEngine.UI`를 쓰면 `Text` 이름이 겹치니 `UnityEngine.UI.Text`로 풀어 쓴다.
+- 씬 연결은 `GameRoot` 한 곳(컴포지션 루트): 표 읽기 · 판(World) 만들기 · 고정 틱 돌리기 · 표시 쪽에 상태 넘기기. 싱글턴을 만들지 않는다.
+- 시뮬레이션은 `Myong.Core.Simulation.Step` 한 곳(한 번 = 한 틱), 상태는 `World`에만. 틱 설정은 데이터 `Data/SimulationTuning.asset`.
+- 이동 규칙은 `Simulation.Step` + `MoveRules`(대각선 길이 1), 수치는 데이터 `Data/PlayerTuning.asset`(이동 속도). Core의 위치는 `Vec2`.
+- 입력은 `PlayerInputReader` 한 곳 — `Assets/InputSystem_Actions.inputactions`의 Player/Move 액션. 가상 조이스틱도 이 액션에 묶는다(코드에서 키를 직접 읽지 않는다).
+- 플레이어 그리기는 `PlayerView` 한 곳(보간 · 도트 격자 맞춤 · 좌우 뒤집기 · 애니메이터 파라미터). 이동은 Core가 하고 애니메이터에는 파라미터(Speed · Hit)만.
+- 도트 기준(PPU 32 · 기준 해상도 960x540)은 `PixelArt` 한 곳. 임포트 규칙은 `PixelArtImportRules`(`Assets/_Game/Art/` 아래 자동).
+- 주인공 리그 · 애니메이션은 `PlayerRigBuilder`의 Bones · Clips 표가 기준 — 프리팹 · 클립 · 컨트롤러를 손으로 고치지 말고 표를 고친 뒤 메뉴 `Myong/Setup/Build Player Rig`. 새 뼈 · 새 프레임 = 표 한 줄.
+- 씬 · 에셋 구성은 Setup 메뉴(`Myong/Setup/Run All` = 2D 렌더 설정 → 데이터 에셋 → 아트 재임포트 → 리그 → Game 씬)로, 몇 번 돌려도 같은 결과. 수치 에셋은 없을 때만 만들고 값은 덮어쓰지 않는다.
+- `Myong.Editor` 네임스페이스 안에서는 `Editor`가 네임스페이스로 읽힌다 — 커스텀 인스펙터는 `UnityEditor.Editor`로 풀어 쓴다.
 - (시스템이 생길 때마다 한 줄씩: "○○는 `클래스` 한 곳, 데이터 `에셋`, 새 항목 = 표 한 줄")
 
 ## 핵심 설계 규칙 (변경 금지)
@@ -73,8 +85,8 @@ MyongMyong/Assets/_Game/
 7. 적 수백 마리를 전제로 — Core는 할당 없는 배열 · 풀, Unity는 풀링된 렌더러(나중에 GPU 인스턴싱도 열어 둠).
 
 ## 아트 · 그래픽 규칙
-- 도트: Point 필터, 압축 없음, PPU 통일(Phase 0에서 정함), 픽셀 퍼펙트 카메라.
-- 캐릭터: 파츠(뒷머리 · 머리 · 몸통 · 팔 · 총 · 다리)를 뼈마다 통째로 붙이는 컷아웃 방식 — 메시 변형(스키닝)은 도트를 뭉개므로 쓰지 않는다.
+- 도트: Point 필터, 압축 없음, 밉맵 끔, PPU 32 통일, 기준 해상도 960x540, 픽셀 퍼펙트 카메라(Upscale Render Texture) — 값은 `PixelArt`, 임포트는 `PixelArtImportRules`가 자동(정한 것 2026-11-24, Claude, 확인 필요).
+- 캐릭터: 파츠(뒷머리 · 머리 · 몸통 · 팔 · 총 · 다리)를 뼈마다 통째로 붙이는 컷아웃 방식 — 메시 변형(스키닝)은 도트를 뭉개므로 쓰지 않는다. 파츠 위치 · 관절은 `Parts/layout.json`, 움직임은 도트 한 칸 단위 계단식 키, 스프라이트 재질은 Sprite-Unlit.
 - 데이터는 비주얼을 ID로만 참조, 없으면 단색 도형으로 그린다.
 
 ## Git · 환경

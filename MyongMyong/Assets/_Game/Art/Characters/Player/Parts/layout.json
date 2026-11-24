@@ -1,0 +1,386 @@
+﻿{
+    "source":  "source.png (1254x1254)",
+    "dotSizeSourcePx":  10,
+    "dotSizeNote":  "grid fitted per axis by dynamic programming (cell 8-12 src px, mean 9.8). Head was drawn with ~20 px dots (=2x2 native px), body/gun with ~10-13 px dots.",
+    "sourceGridOrigin":  {
+                             "y":  29,
+                             "note":  "native (0,0) = cell (19,29) of dbg/grid.json lines",
+                             "x":  19
+                         },
+    "native":  {
+                   "height":  88,
+                   "width":  92
+               },
+    "characterBounds":  {
+                            "x":  5,
+                            "y":  5,
+                            "w":  81,
+                            "h":  79
+                        },
+    "coordNote":  "rect/pivot: native px, top-left origin, y down. *BL: bottom-left origin, y up (Unity). pivotNormalized: inside the cropped sprite, bottom-left origin (Unity sprite pivot).",
+    "suggestedPixelsPerUnit":  92,
+    "feetY_BL":  4,
+    "palette":  [
+                    "7E78A4",
+                    "FBFBFC",
+                    "F8C5A4",
+                    "704D4A",
+                    "6FB7FA",
+                    "C47C76",
+                    "D9D8E9",
+                    "3E65BF",
+                    "4F4F70",
+                    "BC9BA5",
+                    "995F6C",
+                    "ABE2FB",
+                    "7D8CBE",
+                    "FDDBBB",
+                    "7EAEE0",
+                    "E8A28D",
+                    "FDF0EA",
+                    "9D707E",
+                    "FAC5CC",
+                    "4B4867",
+                    "5B5C81",
+                    "A1B0D1",
+                    "6E7EB1",
+                    "E4EAF6",
+                    "FDE2C6",
+                    "6B6B93",
+                    "69505D",
+                    "B26C6B"
+                ],
+    "drawOrder":  [
+                      "hair_back",
+                      "leg_left",
+                      "leg_right",
+                      "torso",
+                      "arm_back",
+                      "head",
+                      "gun",
+                      "arm_front"
+                  ],
+    "parts":  {
+                  "hair_back":  {
+                                    "file":  "parts/hair_back.png",
+                                    "cropped":  "parts_cropped/hair_back.png",
+                                    "sortingOrder":  0,
+                                    "parent":  "head",
+                                    "rect":  {
+                                                 "x":  5,
+                                                 "y":  44,
+                                                 "w":  79,
+                                                 "h":  35
+                                             },
+                                    "rectBL":  {
+                                                   "x":  5,
+                                                   "y":  9,
+                                                   "w":  79,
+                                                   "h":  35
+                                               },
+                                    "pivot":  {
+                                                  "x":  50,
+                                                  "y":  52
+                                              },
+                                    "pivotBL":  {
+                                                    "x":  50,
+                                                    "y":  36
+                                                },
+                                    "pivotNormalized":  {
+                                                            "x":  0.5696,
+                                                            "y":  0.7714
+                                                        },
+                                    "pivotMeaning":  "head centre (parent: head or torso)"
+                                },
+                  "leg_left":  {
+                                   "file":  "parts/leg_left.png",
+                                   "cropped":  "parts_cropped/leg_left.png",
+                                   "sortingOrder":  1,
+                                   "parent":  "root",
+                                   "rect":  {
+                                                "x":  31,
+                                                "y":  70,
+                                                "w":  13,
+                                                "h":  14
+                                            },
+                                   "rectBL":  {
+                                                  "x":  31,
+                                                  "y":  4,
+                                                  "w":  13,
+                                                  "h":  14
+                                              },
+                                   "pivot":  {
+                                                 "x":  40,
+                                                 "y":  75
+                                             },
+                                   "pivotBL":  {
+                                                   "x":  40,
+                                                   "y":  13
+                                               },
+                                   "pivotNormalized":  {
+                                                           "x":  0.6923,
+                                                           "y":  0.6429
+                                                       },
+                                   "pivotMeaning":  "hip (viewer left)"
+                               },
+                  "leg_right":  {
+                                    "file":  "parts/leg_right.png",
+                                    "cropped":  "parts_cropped/leg_right.png",
+                                    "sortingOrder":  2,
+                                    "parent":  "root",
+                                    "rect":  {
+                                                 "x":  50,
+                                                 "y":  70,
+                                                 "w":  12,
+                                                 "h":  14
+                                             },
+                                    "rectBL":  {
+                                                   "x":  50,
+                                                   "y":  4,
+                                                   "w":  12,
+                                                   "h":  14
+                                               },
+                                    "pivot":  {
+                                                  "x":  54.5,
+                                                  "y":  75
+                                              },
+                                    "pivotBL":  {
+                                                    "x":  54.5,
+                                                    "y":  13
+                                                },
+                                    "pivotNormalized":  {
+                                                            "x":  0.375,
+                                                            "y":  0.6429
+                                                        },
+                                    "pivotMeaning":  "hip (viewer right)"
+                                },
+                  "torso":  {
+                                "file":  "parts/torso.png",
+                                "cropped":  "parts_cropped/torso.png",
+                                "sortingOrder":  3,
+                                "parent":  "root",
+                                "rect":  {
+                                             "x":  34,
+                                             "y":  56,
+                                             "w":  24,
+                                             "h":  22
+                                         },
+                                "rectBL":  {
+                                               "x":  34,
+                                               "y":  10,
+                                               "w":  24,
+                                               "h":  22
+                                           },
+                                "pivot":  {
+                                              "x":  47,
+                                              "y":  74
+                                          },
+                                "pivotBL":  {
+                                                "x":  47,
+                                                "y":  14
+                                            },
+                                "pivotNormalized":  {
+                                                        "x":  0.5417,
+                                                        "y":  0.1818
+                                                    },
+                                "pivotMeaning":  "hip centre (root of body)"
+                            },
+                  "arm_back":  {
+                                   "file":  "parts/arm_back.png",
+                                   "cropped":  "parts_cropped/arm_back.png",
+                                   "sortingOrder":  4,
+                                   "parent":  "torso",
+                                   "rect":  {
+                                                "x":  55,
+                                                "y":  62,
+                                                "w":  13,
+                                                "h":  15
+                                            },
+                                   "rectBL":  {
+                                                  "x":  55,
+                                                  "y":  11,
+                                                  "w":  13,
+                                                  "h":  15
+                                              },
+                                   "pivot":  {
+                                                 "x":  58,
+                                                 "y":  64
+                                             },
+                                   "pivotBL":  {
+                                                   "x":  58,
+                                                   "y":  24
+                                               },
+                                   "pivotNormalized":  {
+                                                           "x":  0.2308,
+                                                           "y":  0.8667
+                                                       },
+                                   "pivotMeaning":  "shoulder (viewer right; hand supports the barrel from below)"
+                               },
+                  "head":  {
+                               "file":  "parts/head.png",
+                               "cropped":  "parts_cropped/head.png",
+                               "sortingOrder":  5,
+                               "parent":  "torso",
+                               "rect":  {
+                                            "x":  6,
+                                            "y":  5,
+                                            "w":  77,
+                                            "h":  54
+                                        },
+                               "rectBL":  {
+                                              "x":  6,
+                                              "y":  29,
+                                              "w":  77,
+                                              "h":  54
+                                          },
+                               "pivot":  {
+                                             "x":  50,
+                                             "y":  58.5
+                                         },
+                               "pivotBL":  {
+                                               "x":  50,
+                                               "y":  29.5
+                                           },
+                               "pivotNormalized":  {
+                                                       "x":  0.5714,
+                                                       "y":  0.0093
+                                                   },
+                               "pivotMeaning":  "neck"
+                           },
+                  "gun":  {
+                              "file":  "parts/gun.png",
+                              "cropped":  "parts_cropped/gun.png",
+                              "sortingOrder":  6,
+                              "parent":  "arm_front (or torso)",
+                              "rect":  {
+                                           "x":  31,
+                                           "y":  61,
+                                           "w":  55,
+                                           "h":  17
+                                       },
+                              "rectBL":  {
+                                             "x":  31,
+                                             "y":  10,
+                                             "w":  55,
+                                             "h":  17
+                                         },
+                              "pivot":  {
+                                            "x":  48,
+                                            "y":  68.5
+                                        },
+                              "pivotBL":  {
+                                              "x":  48,
+                                              "y":  19.5
+                                          },
+                              "pivotNormalized":  {
+                                                      "x":  0.3091,
+                                                      "y":  0.5588
+                                                  },
+                              "pivotMeaning":  "pistol grip / trigger hand"
+                          },
+                  "arm_front":  {
+                                    "file":  "parts/arm_front.png",
+                                    "cropped":  "parts_cropped/arm_front.png",
+                                    "sortingOrder":  7,
+                                    "parent":  "torso",
+                                    "rect":  {
+                                                 "x":  35,
+                                                 "y":  62,
+                                                 "w":  14,
+                                                 "h":  9
+                                             },
+                                    "rectBL":  {
+                                                   "x":  35,
+                                                   "y":  17,
+                                                   "w":  14,
+                                                   "h":  9
+                                               },
+                                    "pivot":  {
+                                                  "x":  40,
+                                                  "y":  64
+                                              },
+                                    "pivotBL":  {
+                                                    "x":  40,
+                                                    "y":  24
+                                                },
+                                    "pivotNormalized":  {
+                                                            "x":  0.3571,
+                                                            "y":  0.7778
+                                                        },
+                                    "pivotMeaning":  "shoulder (viewer left; puff sleeve, trigger hand)"
+                                },
+                  "weapon_arms":  {
+                                      "file":  "parts/weapon_arms.png",
+                                      "cropped":  "parts_cropped/weapon_arms.png",
+                                      "sortingOrder":  6,
+                                      "parent":  "torso",
+                                      "rect":  {
+                                                   "x":  31,
+                                                   "y":  61,
+                                                   "w":  55,
+                                                   "h":  17
+                                               },
+                                      "rectBL":  {
+                                                     "x":  31,
+                                                     "y":  10,
+                                                     "w":  55,
+                                                     "h":  17
+                                                 },
+                                      "pivot":  {
+                                                    "x":  48,
+                                                    "y":  68.5
+                                                },
+                                      "pivotBL":  {
+                                                      "x":  48,
+                                                      "y":  19.5
+                                                  },
+                                      "pivotNormalized":  {
+                                                              "x":  0.3091,
+                                                              "y":  0.5588
+                                                          },
+                                      "pivotMeaning":  "grip - rotate to aim",
+                                      "composedOf":  [
+                                                         "gun",
+                                                         "arm_front"
+                                                     ],
+                                      "note":  "alternative to the separate parts - do not use together with them"
+                                  },
+                  "weapon_arms_both":  {
+                                           "file":  "parts/weapon_arms_both.png",
+                                           "cropped":  "parts_cropped/weapon_arms_both.png",
+                                           "sortingOrder":  6,
+                                           "parent":  "torso",
+                                           "rect":  {
+                                                        "x":  31,
+                                                        "y":  61,
+                                                        "w":  55,
+                                                        "h":  17
+                                                    },
+                                           "rectBL":  {
+                                                          "x":  31,
+                                                          "y":  10,
+                                                          "w":  55,
+                                                          "h":  17
+                                                      },
+                                           "pivot":  {
+                                                         "x":  48,
+                                                         "y":  68.5
+                                                     },
+                                           "pivotBL":  {
+                                                           "x":  48,
+                                                           "y":  19.5
+                                                       },
+                                           "pivotNormalized":  {
+                                                                   "x":  0.3091,
+                                                                   "y":  0.5588
+                                                               },
+                                           "pivotMeaning":  "grip - rotate to aim",
+                                           "composedOf":  [
+                                                              "arm_back",
+                                                              "gun",
+                                                              "arm_front"
+                                                          ],
+                                           "note":  "alternative to the separate parts - do not use together with them"
+                                       }
+              }
+}
