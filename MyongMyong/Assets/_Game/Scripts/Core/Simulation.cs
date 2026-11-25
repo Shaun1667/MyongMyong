@@ -9,11 +9,20 @@ namespace Myong.Core
         public readonly float MoveSpeed;
         /// <summary>줍는 반경(유닛). 이 안에 들어온 경험치 젬은 플레이어 쪽으로 끌려온다.</summary>
         public readonly float PickupRadius;
+        /// <summary>최대 체력(판 시작 때 체력). 0이 되면 판이 끝난다.</summary>
+        public readonly float MaxHealth;
+        /// <summary>몸 반지름(유닛). 적 반지름과 합보다 가까우면 닿은 것.</summary>
+        public readonly float Radius;
+        /// <summary>맞은 뒤 접촉 피해를 받지 않는 시간(초, 틱으로 반올림).</summary>
+        public readonly float HurtInvulnerableSeconds;
 
-        public PlayerTuningData(float moveSpeed, float pickupRadius = 0f)
+        public PlayerTuningData(float moveSpeed, float pickupRadius = 0f, float maxHealth = 0f, float radius = 0f, float hurtInvulnerableSeconds = 0f)
         {
             MoveSpeed = moveSpeed;
             PickupRadius = pickupRadius;
+            MaxHealth = maxHealth;
+            Radius = radius;
+            HurtInvulnerableSeconds = hurtInvulnerableSeconds;
         }
     }
 
@@ -46,6 +55,7 @@ namespace Myong.Core
         readonly EnemySeparation separation;
         readonly WeaponRules weaponRules;
         readonly ProgressionRules progression;
+        readonly HealthRules health;
 
         public Simulation(int ticksPerSecond, PlayerTuningData player)
             : this(ticksPerSecond, player, EnemyRulesData.None, WeaponRulesData.None)
@@ -80,6 +90,7 @@ namespace Myong.Core
             separation = new EnemySeparation(enemyGrid, enemies.MaxAlive);
             weaponRules = new WeaponRules(weapons, upgrades, enemies, enemyGrid, ticksPerSecond);
             progression = new ProgressionRules(experience, upgrades, enemies, player, ticksPerSecond);
+            health = new HealthRules(enemies, player, ticksPerSecond);
         }
 
         public int TicksPerSecond { get; }
@@ -128,22 +139,39 @@ namespace Myong.Core
             world.Player.FacingX = Facing.Right;
             weaponRules.InitWorld(world);
             progression.InitWorld(world, weapons.Kinds.Length);
+            health.InitWorld(world);
             return world;
         }
 
         /// <summary>판이 시작된 뒤 지난 시간(초) = 틱 수 × 틱 길이.</summary>
         public float ElapsedSeconds(World world) => world.Tick * TickSeconds;
 
+        /// <summary>최대 체력(PlayerTuning).</summary>
+        public float MaxHealth => health.MaxHealth;
+
+        /// <summary>맞은 뒤 무적 시간(틱).</summary>
+        public int HurtInvulnerableTicks => health.InvulnerableTicks;
+
+        /// <summary>판이 끝날 때까지 버틴 시간(초). 진행 중이면 지금까지.</summary>
+        public float SurvivedSeconds(World world) => (world.IsOver ? world.Result.Ticks : world.Tick) * TickSeconds;
+
         /// <summary>
-        /// 순서: 플레이어 이동 → 적 추적 → 적끼리 밀어내기 → 발사(사거리 안 가장 가까운 적) → 탄 이동 · 맞기
+        /// 순서: 플레이어 이동 → 적 추적 → 적끼리 밀어내기 → 적 접촉 피해(체력 0이면 그 틱에서 판 끝) → 발사(사거리 안 가장 가까운 적) → 탄 이동 · 맞기
         /// → 젬 끌기 · 줍기(경험치 · 레벨) → 죽은 적 자리에 젬 떨어뜨리기 → 죽은 적 빼기 → 스폰(새 적 · 새 젬은 그 틱에는 움직이지 않는다).
-        /// 레벨업 선택을 기다리는 동안(PendingLevelUps > 0)에는 아무것도 하지 않는다 — 틱도 멈춘다.
+        /// 레벨업 선택을 기다리는 동안(PendingLevelUps > 0)과 판이 끝난 뒤(IsOver)에는 아무것도 하지 않는다 — 틱도 멈춘다.
         /// </summary>
         public void Step(World world, in InputFrame input)
         {
-            if (world.PendingLevelUps > 0) return;
+            if (world.IsOver || world.PendingLevelUps > 0) return;
             StepPlayer(world, input);
             StepEnemies(world);
+            if (health.StepContact(world))
+            {
+                // 죽은 틱: 나머지(발사 · 탄 · 젬 · 스폰)는 하지 않고, 이 틱까지 센 결과를 남긴다.
+                world.Tick++;
+                HealthRules.EndRun(world, RunOutcome.Defeat);
+                return;
+            }
             weaponRules.Fire(world);
             weaponRules.StepBullets(world);
             progression.StepGems(world);
@@ -269,6 +297,29 @@ namespace Myong.Core
         public bool ApplyUpgrade(World world, int row)
         {
             return progression.ApplyUpgrade(world, row);
+        }
+
+        // ---- 체력 · 판 끝 ----
+
+        /// <summary>판을 끝낸다(디버그 · 나중의 30분 승리). 결과 값을 남기고, 그 뒤 Step은 아무것도 하지 않는다.</summary>
+        public void EndRun(World world, RunOutcome outcome)
+        {
+            HealthRules.EndRun(world, outcome);
+        }
+
+        /// <summary>플레이어에게 바로 피해(디버그). 무적 시간은 걸지 않는다. 0이 되면 판이 끝난다.</summary>
+        public void DamagePlayer(World world, float damage)
+        {
+            if (world.IsOver || damage <= 0f) return;
+            HealthRules.Hurt(world, damage);
+            if (world.Player.Health <= 0f) HealthRules.EndRun(world, RunOutcome.Defeat);
+        }
+
+        /// <summary>체력을 최대로(디버그).</summary>
+        public void FillHealth(World world)
+        {
+            if (world.IsOver) return;
+            world.Player.Health = health.MaxHealth;
         }
 
         /// <summary>걸린 강화를 모두 푼다(디버그). 레벨 · 경험치는 그대로.</summary>

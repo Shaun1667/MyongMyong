@@ -18,5 +18,6 @@ MonoBehaviour:
     radius: 0.3
     maxHealth: 10
     experience: 1
+    contactDamage: 10
     visualId: enemy_basic
   separationPush: 0.5

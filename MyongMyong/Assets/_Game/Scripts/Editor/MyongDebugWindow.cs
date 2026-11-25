@@ -29,6 +29,7 @@ namespace Myong.Editor
         int seedInput;
         int spawnCount = 200;
         int experienceAmount = 5;
+        float damageAmount = 10f;
 
         [MenuItem("Myong/Debug/Debug Window")]
         public static void Open()
@@ -83,6 +84,16 @@ namespace Myong.Editor
         {
             EditorGUILayout.LabelField("시드", root.DebugSeed.ToString());
             EditorGUILayout.LabelField("틱", root.DebugTick.ToString());
+            if (root.DebugIsOver)
+            {
+                RunResult result = root.DebugResult;
+                EditorGUILayout.LabelField("판 끝", $"{result.Outcome}  생존 {result.Ticks}틱 ({root.DebugSurvivedSeconds:0.00}초) · 레벨 {result.Level} · 처치 {result.EnemiesKilled}  (창 {(root.DebugGameOverOpen ? "떠 있음" : "없음")})");
+                if (GUILayout.Button(StateChange + "[다시 시작] 누르기 (새 시드)")) root.DebugPressRestart();
+            }
+            else
+            {
+                EditorGUILayout.LabelField("판 끝", "진행 중");
+            }
             if (GUILayout.Button(StateChange + "재시작 (같은 시드)")) root.DebugRestart();
             using (new EditorGUILayout.HorizontalScope())
             {
@@ -98,6 +109,18 @@ namespace Myong.Editor
             EditorGUILayout.LabelField("위치", position.ToString());
             EditorGUILayout.LabelField("속도", $"{velocity}  |v| = {velocity.Magnitude:0.###}");
             EditorGUILayout.LabelField("방향", root.DebugPlayerFacingX > 0 ? "오른쪽" : "왼쪽");
+            EditorGUILayout.LabelField("체력", $"{root.DebugPlayerHealth:0.#} / {root.DebugPlayerMaxHealth:0.#}  (바 {root.DebugHealthBarDots}도트)");
+            EditorGUILayout.LabelField("무적", $"{(root.DebugPlayerInvincible ? "디버그 무적" : "보통")} · 맞은 뒤 무적 남은 {root.DebugInvulnerableTicksLeft}틱 (한 번 {root.DebugHurtInvulnerableTicks}틱)");
+            EditorGUILayout.LabelField("받은 피해", $"{root.DebugHitsTaken}번 · 합 {root.DebugDamageTakenTotal:0.#}  (번쩍임 {(root.DebugPlayerFlashing ? "켜짐" : "꺼짐")})");
+            bool playerInvincible = root.DebugPlayerInvincible;
+            if (GUILayout.Button(StateChange + (playerInvincible ? "플레이어 무적 끄기" : "플레이어 무적 켜기"))) root.DebugSetPlayerInvincible(!playerInvincible);
+            if (GUILayout.Button(StateChange + "체력 채우기")) root.DebugFillHealth();
+            using (new EditorGUILayout.HorizontalScope())
+            {
+                damageAmount = Mathf.Max(0f, EditorGUILayout.FloatField("피해", damageAmount));
+                if (GUILayout.Button(StateChange + $"피해 {damageAmount:0.#}")) root.DebugDamagePlayer(damageAmount);
+            }
+            if (GUILayout.Button(StateChange + "바로 게임 오버")) root.DebugGameOverNow();
 
             using (new EditorGUILayout.HorizontalScope())
             {

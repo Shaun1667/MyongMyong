@@ -134,6 +134,86 @@ namespace Myong.Editor
             return (hud, view);
         }
 
+        const float ResultWidth = 420f;
+        const float ResultLineHeight = 30f;
+        const int ResultFontSize = 20;
+        const float RestartWidth = 220f;
+        const float RestartHeight = 52f;
+        const int RestartFontSize = 22;
+        static readonly Color GameOverDim = new Color(0.05f, 0f, 0.02f, 0.72f);
+        static readonly Color GameOverTitleColor = new Color(1f, 0.42f, 0.38f, 1f);
+        static readonly Color GameOverBox = new Color(0.1f, 0.09f, 0.14f, 0.94f);
+
+        /// <summary>
+        /// 판 끝 창(제목 · 생존 시간 · 레벨 · 처치 수 · [다시 시작]). 레벨업 창보다 위(맨 끝 형제). Build 다음에 부른다.
+        /// </summary>
+        public static GameOverView BuildGameOver(GameObject hudRoot)
+        {
+            var root = Child(hudRoot.transform, "GameOver");
+            Stretch(root);
+            root.SetAsLastSibling();
+            var view = GetOrAdd<GameOverView>(root.gameObject);
+            var panel = Child(root, "Panel");
+            Stretch(panel);
+            Image(panel.gameObject, GameOverDim, true);
+
+            // 글 뒤 상자(가운데 있는 플레이어 위에서도 읽히게). 맨 앞 형제 = 가장 뒤.
+            var box = Child(panel, "Box");
+            Place(box, new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f), new Vector2(0f, 12f), new Vector2(500f, 330f));
+            Image(box.gameObject, GameOverBox, false);
+            box.SetAsFirstSibling();
+
+            var title = Child(panel, "Title");
+            Place(title, new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f), new Vector2(0f, 130f), new Vector2(600f, 56f));
+            var titleText = Label(title.gameObject, TitleFontSize, TextAnchor.MiddleCenter, GameOverTitleColor);
+
+            var time = Child(panel, "Time");
+            Place(time, new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f), new Vector2(0f, 60f), new Vector2(ResultWidth, ResultLineHeight));
+            var timeText = Label(time.gameObject, ResultFontSize, TextAnchor.MiddleCenter, Color.white);
+
+            var level = Child(panel, "Level");
+            Place(level, new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f), new Vector2(0f, 60f - ResultLineHeight), new Vector2(ResultWidth, ResultLineHeight));
+            var levelText = Label(level.gameObject, ResultFontSize, TextAnchor.MiddleCenter, Color.white);
+
+            var kills = Child(panel, "Kills");
+            Place(kills, new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f), new Vector2(0f, 60f - 2f * ResultLineHeight), new Vector2(ResultWidth, ResultLineHeight));
+            var killsText = Label(kills.gameObject, ResultFontSize, TextAnchor.MiddleCenter, Color.white);
+
+            var restart = Child(panel, "Restart");
+            Place(restart, new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f), new Vector2(0f, -70f), new Vector2(RestartWidth, RestartHeight));
+            var background = Image(restart.gameObject, Color.white, true);
+            var button = GetOrAdd<UnityEngine.UI.Button>(restart.gameObject);
+            button.targetGraphic = background;
+            var colors = button.colors;
+            colors.normalColor = CardNormal;
+            colors.highlightedColor = CardHighlighted;
+            colors.selectedColor = CardSelected;
+            colors.pressedColor = CardPressed;
+            colors.colorMultiplier = 1f;
+            button.colors = colors;
+            var restartLabel = Child(restart, "Label");
+            Stretch(restartLabel);
+            var restartText = Label(restartLabel.gameObject, RestartFontSize, TextAnchor.MiddleCenter, Color.white);
+
+            var hint = Child(panel, "Hint");
+            Place(hint, new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f), new Vector2(0f, -122f), new Vector2(800f, 24f));
+            var hintText = Label(hint.gameObject, BodyFontSize, TextAnchor.MiddleCenter, BodyColor);
+
+            var so = new SerializedObject(view);
+            so.FindProperty("panel").objectReferenceValue = panel.gameObject;
+            so.FindProperty("title").objectReferenceValue = titleText;
+            so.FindProperty("time").objectReferenceValue = timeText;
+            so.FindProperty("level").objectReferenceValue = levelText;
+            so.FindProperty("kills").objectReferenceValue = killsText;
+            so.FindProperty("hint").objectReferenceValue = hintText;
+            so.FindProperty("restartButton").objectReferenceValue = button;
+            so.FindProperty("restartLabel").objectReferenceValue = restartText;
+            so.ApplyModifiedPropertiesWithoutUndo();
+            // 창은 Play 중 판이 끝났을 때만 보인다(GameOverView가 켠다).
+            panel.gameObject.SetActive(false);
+            return view;
+        }
+
         /// <summary>uGUI 입력: EventSystem + Input System UI 모듈(마우스 클릭 · 패드 · 키보드 이동과 확인). 액션은 프로젝트 기본 UI 액션.</summary>
         public static void EnsureEventSystem(Scene scene)
         {

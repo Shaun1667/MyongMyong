@@ -25,3 +25,11 @@ upgrade.move_speed.name,가벼운 발,Light Feet
 upgrade.move_speed.desc,이동 속도 {0},Move speed {0}
 upgrade.pickup_radius.name,자석,Magnet
 upgrade.pickup_radius.desc,줍는 반경 {0},Pickup radius {0}
+# 게임 오버 창
+ui.gameover.title,게임 오버,Game Over
+ui.gameover.victory,생존 성공!,You Survived!
+ui.gameover.time,생존 시간 {0}:{1},Survived {0}:{1}
+ui.gameover.level,레벨 {0},Level {0}
+ui.gameover.kills,처치 {0},Kills {0}
+ui.gameover.restart,다시 시작,Restart
+ui.gameover.hint,"클릭 · Enter · 패드로 다시 시작","Click, Enter, or gamepad to restart"

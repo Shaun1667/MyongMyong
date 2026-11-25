@@ -21,6 +21,8 @@ namespace Myong.Unity
             [Min(0f)] public float maxHealth;
             [Tooltip("Experience the gem dropped on death is worth (0 = no gem).")]
             [Min(0)] public int experience;
+            [Tooltip("Damage dealt when touching the player (0 = harmless). The player then stays invulnerable for a short time (Player Tuning).")]
+            [Min(0f)] public float contactDamage;
             [Tooltip("Visual key. With no sprite for it, a solid placeholder shape is drawn.")]
             public string visualId;
         }

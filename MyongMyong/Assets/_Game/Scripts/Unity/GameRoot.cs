@@ -29,6 +29,8 @@ namespace Myong.Unity
         [SerializeField] GemRenderPool gemView;
         [SerializeField] ExperienceHud experienceHud;
         [SerializeField] LevelUpView levelUpView;
+        [SerializeField] PlayerHealthBar healthBar;
+        [SerializeField] GameOverView gameOverView;
 
         [Header("Seed")]
         [Tooltip("Off: a new seed every run. On: always Fixed Seed.")]
@@ -47,8 +49,12 @@ namespace Myong.Unity
         {
             if (stringsCsv != null) Text.Load(TextTable.ParseCsv(stringsCsv.text));
             if (levelUpView != null) levelUpView.Chosen += OnCardChosen;
-            StartRun(useFixedSeed ? fixedSeed : Environment.TickCount);
+            if (gameOverView != null) gameOverView.RestartPressed += OnRestartPressed;
+            StartRun(NextSeed());
         }
+
+        // 고정 시드가 켜져 있으면 그 시드, 아니면 매번 새 시드.
+        int NextSeed() => useFixedSeed ? fixedSeed : Environment.TickCount;
 
         void StartRun(int seed)
         {
@@ -62,11 +68,19 @@ namespace Myong.Unity
             if (enemyView != null) enemyView.Prepare(enemyRules.MaxAlive, enemyTable);
             if (bulletView != null) bulletView.Prepare(weaponRules.MaxBullets, weaponTable);
             if (gemView != null) gemView.Prepare(experienceRules.MaxGems, experienceTable != null ? experienceTable.GemVisualId : string.Empty);
+            if (playerView != null) playerView.ResetView();
         }
 
         void OnDestroy()
         {
             if (levelUpView != null) levelUpView.Chosen -= OnCardChosen;
+            if (gameOverView != null) gameOverView.RestartPressed -= OnRestartPressed;
+        }
+
+        // 판 끝 창의 [다시 시작](클릭 · 패드 · Enter). 디버그 재시작과 같은 길(StartRun), 새 시드.
+        void OnRestartPressed()
+        {
+            if (world != null && world.IsOver) StartRun(NextSeed());
         }
 
         // 레벨업 창의 카드를 눌렀다(마우스 · 패드 확인). 적용은 Core.
@@ -91,28 +105,31 @@ namespace Myong.Unity
 
             stepTimer.Restart();
             accumulator += Time.deltaTime;
-            // 선택을 기다리는 동안은 틱을 돌리지 않고 쌓인 시간도 버린다(창을 닫아도 몰아서 가지 않게).
-            if (world.IsChoosingUpgrade) accumulator = 0f;
-            while (accumulator >= tick && budget > 0 && !world.IsChoosingUpgrade)
+            // 선택을 기다리는 동안 · 판이 끝난 뒤에는 틱을 돌리지 않고 쌓인 시간도 버린다(창을 닫아도 몰아서 가지 않게).
+            bool paused = world.IsChoosingUpgrade || world.IsOver;
+            if (paused) accumulator = 0f;
+            while (accumulator >= tick && budget > 0 && !world.IsChoosingUpgrade && !world.IsOver)
             {
                 simulation.Step(world, frame);
                 accumulator -= tick;
                 budget--;
             }
             // 한 프레임에 낼 수 있는 틱을 다 쓰고도 시간이 남으면 버린다(멈추는 대신 느려진다).
-            if (accumulator >= tick || world.IsChoosingUpgrade) accumulator = 0f;
+            if (accumulator >= tick || world.IsChoosingUpgrade || world.IsOver) accumulator = 0f;
             stepTimer.Stop();
             lastStepMilliseconds = stepTimer.Elapsed.TotalMilliseconds;
             frameMillisecondsAverage += (Time.unscaledDeltaTime * 1000f - frameMillisecondsAverage) * DebugFrameAverageWeight;
 
             // 멈춰 있을 때는 마지막 틱 그대로(보간 없이) 그린다.
-            float alpha = world.IsChoosingUpgrade ? 1f : accumulator / tick;
-            if (playerView != null) playerView.Render(world.Player, alpha, simulation.MoveSpeed(world));
+            float alpha = world.IsChoosingUpgrade || world.IsOver ? 1f : accumulator / tick;
+            if (playerView != null) playerView.Render(world.Player, alpha, simulation.MoveSpeed(world), world.Tick);
+            if (healthBar != null) healthBar.Render(world.Player, alpha, simulation.MaxHealth);
             if (enemyView != null) enemyView.Render(world.Enemies, world.EnemyCount, alpha, world.Tick);
             if (bulletView != null) bulletView.Render(world.Bullets, world.BulletCount, alpha);
             if (gemView != null) gemView.Render(world.Gems, world.GemCount, alpha);
             if (experienceHud != null) experienceHud.Render(world.Level, world.Experience, simulation.ExperienceToNext(world.Level));
             if (levelUpView != null) levelUpView.Render(world.PendingLevelUps, world.LevelUpChoices, world.LevelUpChoiceCount, world.UpgradeStages, upgradeTable);
+            if (gameOverView != null) gameOverView.Render(world.Result, simulation.SurvivedSeconds(world));
         }
 
         // ---- 디버그 진입점 (에디터 디버그 창 Myong/Debug/Debug Window 가 부른다) ----
@@ -297,6 +314,71 @@ namespace Myong.Unity
         public void DebugResetUpgrades()
         {
             simulation.ResetUpgrades(world);
+        }
+
+        // ---- 체력 · 판 끝 ----
+
+        public float DebugPlayerHealth => world.Player.Health;
+
+        public float DebugPlayerMaxHealth => simulation.MaxHealth;
+
+        public bool DebugPlayerInvincible => world.PlayerInvincible;
+
+        /// <summary>맞은 뒤 무적 시간이 남은 틱(0 = 없음).</summary>
+        public long DebugInvulnerableTicksLeft => Math.Max(0L, world.Player.InvulnerableUntilTick - world.Tick);
+
+        public int DebugHurtInvulnerableTicks => simulation.HurtInvulnerableTicks;
+
+        public long DebugHitsTaken => world.HitsTaken;
+
+        public float DebugDamageTakenTotal => world.DamageTakenTotal;
+
+        public long DebugLastHurtTick => world.Player.LastHurtTick;
+
+        public bool DebugIsOver => world.IsOver;
+
+        public RunResult DebugResult => world.Result;
+
+        public float DebugSurvivedSeconds => simulation.SurvivedSeconds(world);
+
+        /// <summary>표시 확인용: 플레이어가 붉게 번쩍이는 중 / 깜빡임의 어두운 쪽 / 체력 바 도트 수 / 판 끝 창이 떠 있음.</summary>
+        public bool DebugPlayerFlashing => playerView != null && playerView.IsFlashing;
+
+        public bool DebugPlayerBlinkDim => playerView != null && playerView.IsBlinkDim;
+
+        public int DebugHealthBarDots => healthBar != null ? healthBar.FillDots : -1;
+
+        public bool DebugGameOverOpen => gameOverView != null && gameOverView.IsOpen;
+
+        /// <summary>[상태 변경] 플레이어 무적 켜기 / 끄기.</summary>
+        public void DebugSetPlayerInvincible(bool invincible)
+        {
+            world.PlayerInvincible = invincible;
+        }
+
+        /// <summary>[상태 변경] 체력 채우기.</summary>
+        public void DebugFillHealth()
+        {
+            simulation.FillHealth(world);
+        }
+
+        /// <summary>[상태 변경] 피해 amount(0이 되면 판 끝).</summary>
+        public void DebugDamagePlayer(float amount)
+        {
+            simulation.DamagePlayer(world, amount);
+        }
+
+        /// <summary>[상태 변경] 바로 게임 오버(패배로 판 끝).</summary>
+        public void DebugGameOverNow()
+        {
+            simulation.EndRun(world, RunOutcome.Defeat);
+        }
+
+        /// <summary>[상태 변경] 판 끝 창의 [다시 시작]을 누른 것과 같은 길(버튼 onClick). 창이 없으면 바로.</summary>
+        public void DebugPressRestart()
+        {
+            if (gameOverView != null && gameOverView.RestartButton != null) gameOverView.RestartButton.onClick.Invoke();
+            else OnRestartPressed();
         }
 
         public Vec2 DebugPlayerPosition => world.Player.Position;

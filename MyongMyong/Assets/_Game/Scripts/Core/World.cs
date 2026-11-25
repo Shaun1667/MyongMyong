@@ -15,6 +15,16 @@ namespace Myong.Core
         public Vec2 PreviousPosition;
         public Vec2 Velocity;
         public int FacingX;
+
+        /// <summary>LastHurtTick에 넣는 값: 맞은 적 없음.</summary>
+        public const long NeverHurt = long.MinValue / 2;
+
+        /// <summary>지금 체력(0이면 판이 끝난다). 최대는 PlayerTuning의 최대 체력.</summary>
+        public float Health;
+        /// <summary>마지막으로 피해를 받은 틱(표시 쪽 붉은 번쩍임용). 없으면 NeverHurt.</summary>
+        public long LastHurtTick;
+        /// <summary>이 틱 전까지는 접촉 피해를 받지 않는다(맞은 뒤 무적 시간).</summary>
+        public long InvulnerableUntilTick;
     }
 
     /// <summary>한 판의 상태 전부(스냅샷). 시스템은 상태를 따로 들지 않는다.</summary>
@@ -81,6 +91,19 @@ namespace Myong.Core
         /// <summary>강화 값 칸(Stats 참고): 더한 값 합 · 곱한 값 곱.</summary>
         public float[] StatAdd = new float[StatTargets.Count];
         public float[] StatMul = new float[StatTargets.Count];
+
+        /// <summary>판이 어떻게 끝났는지(진행 중 = Playing). 끝나면 Step이 아무것도 하지 않는다.</summary>
+        public RunOutcome Outcome;
+        /// <summary>판이 끝났을 때의 결과 값(생존 틱 · 레벨 · 처치 수). 진행 중이면 기본값.</summary>
+        public RunResult Result;
+        /// <summary>플레이어가 피해를 받지 않는지(디버그).</summary>
+        public bool PlayerInvincible;
+        /// <summary>이 판에서 받은 피해 횟수 · 합.</summary>
+        public long HitsTaken;
+        public float DamageTakenTotal;
+
+        /// <summary>판이 끝났다(패배 · 승리).</summary>
+        public bool IsOver => Outcome != RunOutcome.Playing;
 
         /// <summary>레벨업 선택을 기다리는 중(시뮬레이션이 멈춘다).</summary>
         public bool IsChoosingUpgrade => PendingLevelUps > 0;

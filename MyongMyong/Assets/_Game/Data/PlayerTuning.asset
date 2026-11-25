@@ -14,3 +14,6 @@ MonoBehaviour:
   m_EditorClassIdentifier: Myong.Unity::Myong.Unity.PlayerTuning
   moveSpeed: 4.5
   pickupRadius: 2.5
+  maxHealth: 100
+  bodyRadius: 0.35
+  hurtInvulnerableSeconds: 0.5

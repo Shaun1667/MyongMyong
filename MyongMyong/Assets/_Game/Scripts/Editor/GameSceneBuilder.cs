@@ -31,6 +31,7 @@ namespace Myong.Editor
         const int EnemySortingOrder = -1; // 플레이어(0) 뒤, 바닥 앞
         const int BulletSortingOrder = 1; // 플레이어 · 적 앞
         const int GemSortingOrder = -2; // 바닥 위, 적 뒤
+        const int HealthBarSortingOrder = 5; // 플레이어 · 적 · 탄 앞
         const float GemPlaceholderRadius = 0.09f; // 지름 6도트 단색 도트(표시만)
         const int GroundTileDots = 64;
         const int GroundCellDots = 32;
@@ -128,6 +129,12 @@ namespace Myong.Editor
             gemSo.FindProperty("placeholderRadius").floatValue = GemPlaceholderRadius;
             gemSo.ApplyModifiedPropertiesWithoutUndo();
 
+            // 플레이어 체력 바 (머리 위, 리그와 따로 있는 오브젝트 — 조각은 Play 때 만든다)
+            var healthBarObject = FindOrCreate(scene, "PlayerHealthBar");
+            var healthBar = GetOrAdd<PlayerHealthBar>(healthBarObject);
+            SetupUtil.SetReference(healthBar, "spriteMaterial", material);
+            SetupUtil.SetInt(healthBar, "sortingOrder", HealthBarSortingOrder);
+
             // 컴포지션 루트 + 입력
             var rootObject = FindOrCreate(scene, "GameRoot");
             var input = GetOrAdd<PlayerInputReader>(rootObject);
@@ -157,6 +164,7 @@ namespace Myong.Editor
             SetupUtil.SetReference(gameRoot, "experienceTable", AssetDatabase.LoadAssetAtPath<ExperienceTable>(DataSetup.ExperienceTablePath));
             SetupUtil.SetReference(gameRoot, "upgradeTable", AssetDatabase.LoadAssetAtPath<UpgradeTable>(DataSetup.UpgradeTablePath));
             SetupUtil.SetReference(gameRoot, "gemView", gemPool);
+            SetupUtil.SetReference(gameRoot, "healthBar", healthBar);
 
             // HUD (텍스트 표 확인용 임시 라벨)
             var hud = FindOrCreate(scene, "HUD");
@@ -193,6 +201,7 @@ namespace Myong.Editor
             var (experienceHud, levelUpView) = HudBuilder.Build(hud);
             SetupUtil.SetReference(gameRoot, "experienceHud", experienceHud);
             SetupUtil.SetReference(gameRoot, "levelUpView", levelUpView);
+            SetupUtil.SetReference(gameRoot, "gameOverView", HudBuilder.BuildGameOver(hud));
             HudBuilder.EnsureEventSystem(scene);
 
             EditorSceneManager.MarkSceneDirty(scene);

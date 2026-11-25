@@ -14,7 +14,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: Myong.Unity::Myong.Unity.SpawnTable
   phases:
   - startSeconds: 0
-    spawnsPerSecond: 1
+    spawnsPerSecond: 1.5
     enemyId: basic
   - startSeconds: 60
     spawnsPerSecond: 2

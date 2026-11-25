@@ -13,10 +13,25 @@ namespace Myong.Unity
         [Tooltip("Pickup radius in units: experience gems inside it fly to the player.")]
         [SerializeField, Min(0f)] float pickupRadius;
 
+        [Tooltip("Health at the start of a run. The run ends when it reaches 0.")]
+        [SerializeField, Min(0f)] float maxHealth;
+
+        [Tooltip("Body radius in units. An enemy closer than this plus its own radius touches the player.")]
+        [SerializeField, Min(0f)] float bodyRadius;
+
+        [Tooltip("Seconds after a hit during which enemy contact does no damage (rounded to ticks).")]
+        [SerializeField, Min(0f)] float hurtInvulnerableSeconds;
+
         public float MoveSpeed => moveSpeed;
 
         public float PickupRadius => pickupRadius;
 
-        public PlayerTuningData ToData() => new PlayerTuningData(moveSpeed, pickupRadius);
+        public float MaxHealth => maxHealth;
+
+        public float BodyRadius => bodyRadius;
+
+        public float HurtInvulnerableSeconds => hurtInvulnerableSeconds;
+
+        public PlayerTuningData ToData() => new PlayerTuningData(moveSpeed, pickupRadius, maxHealth, bodyRadius, hurtInvulnerableSeconds);
     }
 }

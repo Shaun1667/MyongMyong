@@ -32,7 +32,7 @@ namespace Myong.Editor
         const float InitialSeparationPush = 0.5f;
         const float InitialSpawnRadius = 18f;
         const int InitialMaxAlive = 300;
-        static readonly (float start, float perSecond)[] InitialPhases = { (0f, 1f), (60f, 2f), (180f, 4f), (300f, 8f) };
+        static readonly (float start, float perSecond)[] InitialPhases = { (0f, 1.5f), (60f, 2f), (180f, 4f), (300f, 8f) };
 
         // 무기 첫 값 (BALANCE.md와 같은 값. 기준은 에셋)
         const string InitialWeaponId = "girl_gun";
@@ -50,6 +50,12 @@ namespace Myong.Editor
         // 경험치 · 강화 첫 값 (BALANCE.md와 같은 값. 기준은 에셋)
         const float InitialPickupRadius = 2.5f;
         const int InitialEnemyExperience = 1;
+
+        // 체력 · 접촉 피해 첫 값 (BALANCE.md와 같은 값. 기준은 에셋)
+        const float InitialMaxHealth = 100f;
+        const float InitialBodyRadius = 0.35f;
+        const float InitialHurtInvulnerableSeconds = 0.5f;
+        const float InitialEnemyContactDamage = 10f;
         static readonly int[] InitialExperienceToNext = { 5, 10, 15, 20, 26, 32, 38, 45, 52, 60 };
         const int InitialExtraPerLevel = 8;
         const int InitialMaxGems = 400;
@@ -79,6 +85,9 @@ namespace Myong.Editor
                 var so = new SerializedObject(asset);
                 so.FindProperty("moveSpeed").floatValue = InitialMoveSpeed;
                 so.FindProperty("pickupRadius").floatValue = InitialPickupRadius;
+                so.FindProperty("maxHealth").floatValue = InitialMaxHealth;
+                so.FindProperty("bodyRadius").floatValue = InitialBodyRadius;
+                so.FindProperty("hurtInvulnerableSeconds").floatValue = InitialHurtInvulnerableSeconds;
                 so.ApplyModifiedPropertiesWithoutUndo();
                 AssetDatabase.CreateAsset(asset, PlayerTuningPath);
             }
@@ -105,6 +114,7 @@ namespace Myong.Editor
                 row.FindPropertyRelative("radius").floatValue = InitialEnemyRadius;
                 row.FindPropertyRelative("maxHealth").floatValue = InitialEnemyMaxHealth;
                 row.FindPropertyRelative("experience").intValue = InitialEnemyExperience;
+                row.FindPropertyRelative("contactDamage").floatValue = InitialEnemyContactDamage;
                 row.FindPropertyRelative("visualId").stringValue = InitialEnemyVisualId;
                 so.FindProperty("separationPush").floatValue = InitialSeparationPush;
                 so.ApplyModifiedPropertiesWithoutUndo();

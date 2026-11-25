@@ -26,6 +26,32 @@ namespace Myong.Tests
         }
 
         [Test]
+        public void PlayerTuning_HealthValues_AreValid()
+        {
+            var asset = AssetDatabase.LoadAssetAtPath<PlayerTuning>("Assets/_Game/Data/PlayerTuning.asset");
+            Assert.IsNotNull(asset);
+            Assert.Greater(asset.MaxHealth, 0f, "max health");
+            Assert.Greater(asset.BodyRadius, 0f, "body radius");
+            Assert.GreaterOrEqual(asset.HurtInvulnerableSeconds, 0f, "invulnerability");
+            var data = asset.ToData();
+            Assert.AreEqual(asset.MaxHealth, data.MaxHealth);
+            Assert.AreEqual(asset.BodyRadius, data.Radius);
+            Assert.AreEqual(asset.HurtInvulnerableSeconds, data.HurtInvulnerableSeconds);
+
+            // 적 한 마리가 한 번에 죽이지 않는다(맞고 피할 틈이 있다).
+            var enemies = AssetDatabase.LoadAssetAtPath<EnemyTable>("Assets/_Game/Data/EnemyTable.asset");
+            Assert.IsTrue(enemies.Rows.Any(r => r.contactDamage > 0f), "no enemy deals contact damage");
+            foreach (var row in enemies.Rows)
+            {
+                Assert.GreaterOrEqual(row.contactDamage, 0f, row.id);
+                Assert.Less(row.contactDamage, asset.MaxHealth, "one touch kills: " + row.id);
+            }
+            var spawn = AssetDatabase.LoadAssetAtPath<SpawnTable>("Assets/_Game/Data/SpawnTable.asset");
+            var rules = spawn.ToRules(enemies);
+            for (int i = 0; i < enemies.Rows.Count; i++) Assert.AreEqual(enemies.Rows[i].contactDamage, rules.Kinds[i].ContactDamage, enemies.Rows[i].id);
+        }
+
+        [Test]
         public void EnemyTable_Exists_AndRowsAreValid()
         {
             var table = AssetDatabase.LoadAssetAtPath<EnemyTable>("Assets/_Game/Data/EnemyTable.asset");

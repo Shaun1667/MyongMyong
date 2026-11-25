@@ -13,9 +13,12 @@ namespace Myong.Core
         public readonly float MaxHealth;
         /// <summary>죽으면 떨어뜨리는 경험치 젬의 값(0 = 젬 없음).</summary>
         public readonly int ExperienceValue;
+        /// <summary>플레이어와 겹치면(반지름 합) 주는 피해(0 = 닿아도 피해 없음).</summary>
+        public readonly float ContactDamage;
 
-        public EnemyKindData(float moveSpeed, float radius, float maxHealth = 1f, int experienceValue = 0)
+        public EnemyKindData(float moveSpeed, float radius, float maxHealth = 1f, int experienceValue = 0, float contactDamage = 0f)
         {
+            ContactDamage = contactDamage;
             MoveSpeed = moveSpeed;
             Radius = radius;
             MaxHealth = maxHealth;
