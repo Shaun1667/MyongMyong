@@ -56,6 +56,35 @@ namespace Myong.Core
         /// <summary>자동 사격을 멈추는지(디버그).</summary>
         public bool FiringPaused;
 
+        /// <summary>레벨업 선택지 전용 난수 스트림(RandomStream.LevelUp).</summary>
+        public Rng LevelUpRandom;
+
+        /// <summary>떨어져 있는 경험치 젬. 앞에서 GemCount개만 쓴다(크기 = 젬 최대 수, 판 시작 때 한 번 만든다). 빠지면 맨 끝 것을 그 자리로 옮긴다.</summary>
+        public GemState[] Gems = new GemState[0];
+        public int GemCount;
+        public long GemsDroppedTotal;
+        public long GemsCollectedTotal;
+
+        /// <summary>지금 레벨(1부터).</summary>
+        public int Level = 1;
+        /// <summary>지금 레벨에서 모은 경험치(다음 레벨까지 ExperienceToNext(Level)).</summary>
+        public int Experience;
+        /// <summary>이 판에서 얻은 경험치 누계.</summary>
+        public long ExperienceTotal;
+        /// <summary>아직 고르지 않은 레벨업 수(지금 보이는 것 포함). 0보다 크면 시뮬레이션이 멈춘다.</summary>
+        public int PendingLevelUps;
+        /// <summary>지금 보이는 선택지(강화 표의 줄 번호). 앞에서 LevelUpChoiceCount개만 쓴다.</summary>
+        public int[] LevelUpChoices = new int[0];
+        public int LevelUpChoiceCount;
+        /// <summary>강화 표 줄마다 걸린 단계.</summary>
+        public int[] UpgradeStages = new int[0];
+        /// <summary>강화 값 칸(Stats 참고): 더한 값 합 · 곱한 값 곱.</summary>
+        public float[] StatAdd = new float[StatTargets.Count];
+        public float[] StatMul = new float[StatTargets.Count];
+
+        /// <summary>레벨업 선택을 기다리는 중(시뮬레이션이 멈춘다).</summary>
+        public bool IsChoosingUpgrade => PendingLevelUps > 0;
+
         public int AllocateEntityId()
         {
             NextEntityId++;

@@ -11,12 +11,15 @@ namespace Myong.Core
         public readonly float Radius;
         /// <summary>처음 체력. 맞으면 줄고 0 이하가 되면 죽는다.</summary>
         public readonly float MaxHealth;
+        /// <summary>죽으면 떨어뜨리는 경험치 젬의 값(0 = 젬 없음).</summary>
+        public readonly int ExperienceValue;
 
-        public EnemyKindData(float moveSpeed, float radius, float maxHealth = 1f)
+        public EnemyKindData(float moveSpeed, float radius, float maxHealth = 1f, int experienceValue = 0)
         {
             MoveSpeed = moveSpeed;
             Radius = radius;
             MaxHealth = maxHealth;
+            ExperienceValue = experienceValue;
         }
     }
 

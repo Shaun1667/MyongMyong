@@ -18,12 +18,17 @@ namespace Myong.Unity
         [SerializeField] EnemyTable enemyTable;
         [SerializeField] SpawnTable spawnTable;
         [SerializeField] WeaponTable weaponTable;
+        [SerializeField] ExperienceTable experienceTable;
+        [SerializeField] UpgradeTable upgradeTable;
 
         [Header("Scene")]
         [SerializeField] PlayerInputReader input;
         [SerializeField] PlayerView playerView;
         [SerializeField] EnemyRenderPool enemyView;
         [SerializeField] BulletRenderPool bulletView;
+        [SerializeField] GemRenderPool gemView;
+        [SerializeField] ExperienceHud experienceHud;
+        [SerializeField] LevelUpView levelUpView;
 
         [Header("Seed")]
         [Tooltip("Off: a new seed every run. On: always Fixed Seed.")]
@@ -36,10 +41,12 @@ namespace Myong.Unity
         readonly System.Diagnostics.Stopwatch stepTimer = new System.Diagnostics.Stopwatch();
         double lastStepMilliseconds;
         float frameMillisecondsAverage;
+        bool debugAutoChooseFirst;
 
         void Awake()
         {
             if (stringsCsv != null) Text.Load(TextTable.ParseCsv(stringsCsv.text));
+            if (levelUpView != null) levelUpView.Chosen += OnCardChosen;
             StartRun(useFixedSeed ? fixedSeed : Environment.TickCount);
         }
 
@@ -47,11 +54,25 @@ namespace Myong.Unity
         {
             EnemyRulesData enemyRules = enemyTable != null && spawnTable != null ? spawnTable.ToRules(enemyTable) : EnemyRulesData.None;
             WeaponRulesData weaponRules = weaponTable != null ? weaponTable.ToRules() : WeaponRulesData.None;
-            simulation = new Simulation(simulationTuning.TicksPerSecond, playerTuning.ToData(), enemyRules, weaponRules);
+            ExperienceRulesData experienceRules = experienceTable != null ? experienceTable.ToRules() : ExperienceRulesData.None;
+            UpgradeRulesData upgradeRules = upgradeTable != null ? upgradeTable.ToRules(weaponTable) : UpgradeRulesData.None;
+            simulation = new Simulation(simulationTuning.TicksPerSecond, playerTuning.ToData(), enemyRules, weaponRules, experienceRules, upgradeRules);
             world = simulation.CreateWorld(seed);
             accumulator = 0f;
             if (enemyView != null) enemyView.Prepare(enemyRules.MaxAlive, enemyTable);
             if (bulletView != null) bulletView.Prepare(weaponRules.MaxBullets, weaponTable);
+            if (gemView != null) gemView.Prepare(experienceRules.MaxGems, experienceTable != null ? experienceTable.GemVisualId : string.Empty);
+        }
+
+        void OnDestroy()
+        {
+            if (levelUpView != null) levelUpView.Chosen -= OnCardChosen;
+        }
+
+        // 레벨업 창의 카드를 눌렀다(마우스 · 패드 확인). 적용은 Core.
+        void OnCardChosen(int card)
+        {
+            if (world != null && world.IsChoosingUpgrade) simulation.ChooseUpgrade(world, card);
         }
 
         void Update()
@@ -60,24 +81,38 @@ namespace Myong.Unity
             int budget = simulationTuning.MaxTicksPerFrame;
             var frame = new InputFrame { Move = input != null ? input.ReadMove() : Vec2.Zero };
 
+            // 레벨업 선택: 숫자키(입력 액션) 또는 디버그 자동 선택. 클릭 · 패드는 OnCardChosen.
+            int card = input != null ? input.ReadChosenCard() : -1;
+            if (world.IsChoosingUpgrade)
+            {
+                if (debugAutoChooseFirst) card = 0;
+                if (card >= 0) simulation.ChooseUpgrade(world, card);
+            }
+
             stepTimer.Restart();
             accumulator += Time.deltaTime;
-            while (accumulator >= tick && budget > 0)
+            // 선택을 기다리는 동안은 틱을 돌리지 않고 쌓인 시간도 버린다(창을 닫아도 몰아서 가지 않게).
+            if (world.IsChoosingUpgrade) accumulator = 0f;
+            while (accumulator >= tick && budget > 0 && !world.IsChoosingUpgrade)
             {
                 simulation.Step(world, frame);
                 accumulator -= tick;
                 budget--;
             }
             // 한 프레임에 낼 수 있는 틱을 다 쓰고도 시간이 남으면 버린다(멈추는 대신 느려진다).
-            if (accumulator >= tick) accumulator = 0f;
+            if (accumulator >= tick || world.IsChoosingUpgrade) accumulator = 0f;
             stepTimer.Stop();
             lastStepMilliseconds = stepTimer.Elapsed.TotalMilliseconds;
             frameMillisecondsAverage += (Time.unscaledDeltaTime * 1000f - frameMillisecondsAverage) * DebugFrameAverageWeight;
 
-            float alpha = accumulator / tick;
-            if (playerView != null) playerView.Render(world.Player, alpha, playerTuning.MoveSpeed);
+            // 멈춰 있을 때는 마지막 틱 그대로(보간 없이) 그린다.
+            float alpha = world.IsChoosingUpgrade ? 1f : accumulator / tick;
+            if (playerView != null) playerView.Render(world.Player, alpha, simulation.MoveSpeed(world));
             if (enemyView != null) enemyView.Render(world.Enemies, world.EnemyCount, alpha, world.Tick);
             if (bulletView != null) bulletView.Render(world.Bullets, world.BulletCount, alpha);
+            if (gemView != null) gemView.Render(world.Gems, world.GemCount, alpha);
+            if (experienceHud != null) experienceHud.Render(world.Level, world.Experience, simulation.ExperienceToNext(world.Level));
+            if (levelUpView != null) levelUpView.Render(world.PendingLevelUps, world.LevelUpChoices, world.LevelUpChoiceCount, world.UpgradeStages, upgradeTable);
         }
 
         // ---- 디버그 진입점 (에디터 디버그 창 Myong/Debug/Debug Window 가 부른다) ----
@@ -176,6 +211,92 @@ namespace Myong.Unity
         public void DebugClearBullets()
         {
             simulation.ClearBullets(world);
+        }
+
+        // ---- 경험치 · 레벨 ----
+
+        public int DebugLevel => world.Level;
+
+        public int DebugExperience => world.Experience;
+
+        public int DebugExperienceToNext => simulation.ExperienceToNext(world.Level);
+
+        public long DebugExperienceTotal => world.ExperienceTotal;
+
+        public int DebugGemCount => world.GemCount;
+
+        public int DebugGemCapacity => world.Gems.Length;
+
+        public long DebugGemsDroppedTotal => world.GemsDroppedTotal;
+
+        public long DebugGemsCollectedTotal => world.GemsCollectedTotal;
+
+        /// <summary>젬 하나의 상태(확인용, 복사본).</summary>
+        public GemState DebugGem(int index) => world.Gems[index];
+
+        public int DebugPendingLevelUps => world.PendingLevelUps;
+
+        public int DebugChoiceCount => world.LevelUpChoiceCount;
+
+        /// <summary>지금 보이는 선택지 i의 강화 표 줄 번호.</summary>
+        public int DebugChoiceRow(int index) => world.LevelUpChoices[index];
+
+        public int DebugUpgradeRowCount => upgradeTable != null ? upgradeTable.Rows.Count : 0;
+
+        public string DebugUpgradeId(int row) => upgradeTable != null && row >= 0 && row < upgradeTable.Rows.Count ? upgradeTable.Rows[row].id : string.Empty;
+
+        public int DebugUpgradeStage(int row) => row >= 0 && row < world.UpgradeStages.Length ? world.UpgradeStages[row] : 0;
+
+        public int DebugUpgradeMaxStage(int row) => upgradeTable != null && row >= 0 && row < upgradeTable.Rows.Count ? upgradeTable.Rows[row].maxStage : 0;
+
+        /// <summary>강화가 걸린 플레이어 값.</summary>
+        public float DebugMoveSpeed => simulation.MoveSpeed(world);
+
+        public float DebugPickupRadius => simulation.PickupRadius(world);
+
+        /// <summary>강화가 걸린 무기 값.</summary>
+        public float DebugWeaponValue(int kind, StatTarget target) => simulation.WeaponValue(world, kind, target);
+
+        /// <summary>강화가 걸린 발사 간격(틱).</summary>
+        public int DebugFireIntervalTicksNow(int kind) => simulation.FireIntervalTicks(world, kind);
+
+        /// <summary>레벨업 창이 뜨면 처음 카드를 바로 고를지(디버그 · 긴 시뮬레이션 확인용).</summary>
+        public bool DebugAutoChooseFirst
+        {
+            get => debugAutoChooseFirst;
+            set => debugAutoChooseFirst = value;
+        }
+
+        /// <summary>[상태 변경] 경험치 +amount(레벨이 오르면 레벨업 창이 뜬다).</summary>
+        public void DebugAddExperience(int amount)
+        {
+            simulation.AddExperience(world, amount);
+        }
+
+        /// <summary>[상태 변경] 다음 레벨까지 남은 경험치를 바로 넣어 레벨업.</summary>
+        public void DebugLevelUpNow()
+        {
+            int need = simulation.ExperienceToNext(world.Level);
+            if (need == int.MaxValue) return;
+            simulation.AddExperience(world, need - world.Experience);
+        }
+
+        /// <summary>[상태 변경] 레벨업 창의 card번째(0부터)를 고른다 — 숫자키를 누른 것과 같은 길(다음 프레임에 적용).</summary>
+        public void DebugPressCard(int card)
+        {
+            if (input != null) input.DebugPressCard(card);
+        }
+
+        /// <summary>[상태 변경] 강화 표의 row번째 줄을 한 단계 건다. 최대 단계면 false.</summary>
+        public bool DebugApplyUpgrade(int row)
+        {
+            return simulation.ApplyUpgrade(world, row);
+        }
+
+        /// <summary>[상태 변경] 걸린 강화를 모두 푼다(레벨 · 경험치는 그대로).</summary>
+        public void DebugResetUpgrades()
+        {
+            simulation.ResetUpgrades(world);
         }
 
         public Vec2 DebugPlayerPosition => world.Player.Position;

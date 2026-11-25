@@ -1,0 +1,72 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 147a385b96b0e674fb08d0655984fa0c, type: 3}
+  m_Name: UpgradeTable
+  m_EditorClassIdentifier: Myong.Unity::Myong.Unity.UpgradeTable
+  rows:
+  - id: fire_interval
+    nameKey: upgrade.fire_interval.name
+    descriptionKey: upgrade.fire_interval.desc
+    target: 2
+    op: 1
+    value: 0.88
+    maxStage: 5
+    weaponId: girl_gun
+  - id: damage
+    nameKey: upgrade.damage.name
+    descriptionKey: upgrade.damage.desc
+    target: 3
+    op: 0
+    value: 2.5
+    maxStage: 5
+    weaponId: girl_gun
+  - id: multishot
+    nameKey: upgrade.multishot.name
+    descriptionKey: upgrade.multishot.desc
+    target: 4
+    op: 0
+    value: 1
+    maxStage: 3
+    weaponId: girl_gun
+  - id: pierce
+    nameKey: upgrade.pierce.name
+    descriptionKey: upgrade.pierce.desc
+    target: 5
+    op: 0
+    value: 1
+    maxStage: 3
+    weaponId: girl_gun
+  - id: bullet_speed
+    nameKey: upgrade.bullet_speed.name
+    descriptionKey: upgrade.bullet_speed.desc
+    target: 6
+    op: 1
+    value: 1.15
+    maxStage: 5
+    weaponId: girl_gun
+  - id: move_speed
+    nameKey: upgrade.move_speed.name
+    descriptionKey: upgrade.move_speed.desc
+    target: 0
+    op: 1
+    value: 1.08
+    maxStage: 5
+    weaponId: 
+  - id: pickup_radius
+    nameKey: upgrade.pickup_radius.name
+    descriptionKey: upgrade.pickup_radius.desc
+    target: 1
+    op: 1
+    value: 1.3
+    maxStage: 5
+    weaponId: 
+  choicesPerLevelUp: 3

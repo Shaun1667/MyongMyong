@@ -13,3 +13,4 @@ MonoBehaviour:
   m_Name: PlayerTuning
   m_EditorClassIdentifier: Myong.Unity::Myong.Unity.PlayerTuning
   moveSpeed: 4.5
+  pickupRadius: 2.5

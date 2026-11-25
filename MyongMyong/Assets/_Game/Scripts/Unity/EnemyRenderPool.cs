@@ -146,6 +146,10 @@ namespace Myong.Unity
         const float DotSaturation = 0.6f;
         const float DotValue = 1f;
         const int MinDotDiameter = 2;
+        // 경험치 젬 도트: 하늘~파랑(노란 탄 · 분홍 적 · 초록 바닥과 구분되게).
+        const float GemHueStart = 0.52f;
+        const float GemHueSpan = 0.06f;
+        const float GemSaturation = 0.8f;
         static readonly Color32 Eye = new Color32(0x20, 0x1A, 0x24, 0xFF);
         static readonly Color32 Flash = new Color32(0xFF, 0xFF, 0xFF, 0xFF);
 
@@ -197,13 +201,24 @@ namespace Myong.Unity
         /// <summary>반지름(유닛)만 한 단색 도트(탄). 테두리 없음.</summary>
         public static Sprite Dot(string visualId, float radiusUnits)
         {
+            return SolidDot(visualId, radiusUnits, DotHueStart, DotHueSpan, DotSaturation, "PlaceholderDot_");
+        }
+
+        /// <summary>반지름(유닛)만 한 단색 도트(경험치 젬). 탄과 같은 모양, 색만 하늘~파랑.</summary>
+        public static Sprite GemDot(string visualId, float radiusUnits)
+        {
+            return SolidDot(visualId, radiusUnits, GemHueStart, GemHueSpan, GemSaturation, "PlaceholderGem_");
+        }
+
+        static Sprite SolidDot(string visualId, float radiusUnits, float hueStart, float hueSpan, float saturation, string namePrefix)
+        {
             int diameter = Mathf.Max(MinDotDiameter, Mathf.RoundToInt(radiusUnits * 2f * PixelArt.PixelsPerUnit));
             // 짝수 크기로 만들어 가운데 피벗이 도트 경계에 오게 한다(격자 맞춤 때 번지지 않게).
             if (diameter % 2 == 1) diameter++;
             int size = diameter;
             float center = size / 2f;
             float radius = size / 2f;
-            Color32 fill = Color.HSVToRGB(Hue(visualId, DotHueStart, DotHueSpan), DotSaturation, DotValue);
+            Color32 fill = Color.HSVToRGB(Hue(visualId, hueStart, hueSpan), saturation, DotValue);
 
             var pixels = new Color32[size * size];
             for (int y = 0; y < size; y++)
@@ -215,7 +230,7 @@ namespace Myong.Unity
                     if (dx * dx + dy * dy <= radius * radius) pixels[y * size + x] = fill;
                 }
             }
-            return ToSprite(pixels, size, "PlaceholderDot_" + visualId);
+            return ToSprite(pixels, size, namePrefix + visualId);
         }
 
         /// <summary>만든 스프라이트와 텍스처를 지운다(풀의 OnDestroy에서).</summary>

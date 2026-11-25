@@ -16,6 +16,8 @@ namespace Myong.Editor
         public const string EnemyTablePath = Folder + "/EnemyTable.asset";
         public const string SpawnTablePath = Folder + "/SpawnTable.asset";
         public const string WeaponTablePath = Folder + "/WeaponTable.asset";
+        public const string ExperienceTablePath = Folder + "/ExperienceTable.asset";
+        public const string UpgradeTablePath = Folder + "/UpgradeTable.asset";
 
         const float InitialMoveSpeed = 4.5f;
         const int InitialTicksPerSecond = 60;
@@ -45,6 +47,27 @@ namespace Myong.Editor
         const int InitialMaxBullets = 256;
         const float InitialMuzzleHeight = 0.5f;
 
+        // 경험치 · 강화 첫 값 (BALANCE.md와 같은 값. 기준은 에셋)
+        const float InitialPickupRadius = 2.5f;
+        const int InitialEnemyExperience = 1;
+        static readonly int[] InitialExperienceToNext = { 5, 10, 15, 20, 26, 32, 38, 45, 52, 60 };
+        const int InitialExtraPerLevel = 8;
+        const int InitialMaxGems = 400;
+        const float InitialGemPullSpeed = 9f;
+        const float InitialGemCollectDistance = 0.4f;
+        const string InitialGemVisualId = "gem_basic";
+        const int InitialChoicesPerLevelUp = 3;
+        static readonly (string id, Myong.Core.StatTarget target, Myong.Core.StatOp op, float value, int maxStage, string weaponId)[] InitialUpgrades =
+        {
+            ("fire_interval", Myong.Core.StatTarget.FireInterval, Myong.Core.StatOp.Multiply, 0.88f, 5, InitialWeaponId),
+            ("damage", Myong.Core.StatTarget.Damage, Myong.Core.StatOp.Add, 2.5f, 5, InitialWeaponId),
+            ("multishot", Myong.Core.StatTarget.ShotsPerVolley, Myong.Core.StatOp.Add, 1f, 3, InitialWeaponId),
+            ("pierce", Myong.Core.StatTarget.Pierce, Myong.Core.StatOp.Add, 1f, 3, InitialWeaponId),
+            ("bullet_speed", Myong.Core.StatTarget.BulletSpeed, Myong.Core.StatOp.Multiply, 1.15f, 5, InitialWeaponId),
+            ("move_speed", Myong.Core.StatTarget.MoveSpeed, Myong.Core.StatOp.Multiply, 1.08f, 5, ""),
+            ("pickup_radius", Myong.Core.StatTarget.PickupRadius, Myong.Core.StatOp.Multiply, 1.3f, 5, ""),
+        };
+
         [MenuItem("Myong/Setup/Create Data Assets", priority = 11)]
         public static void CreateDataAssets()
         {
@@ -55,6 +78,7 @@ namespace Myong.Editor
                 var asset = ScriptableObject.CreateInstance<PlayerTuning>();
                 var so = new SerializedObject(asset);
                 so.FindProperty("moveSpeed").floatValue = InitialMoveSpeed;
+                so.FindProperty("pickupRadius").floatValue = InitialPickupRadius;
                 so.ApplyModifiedPropertiesWithoutUndo();
                 AssetDatabase.CreateAsset(asset, PlayerTuningPath);
             }
@@ -80,6 +104,7 @@ namespace Myong.Editor
                 row.FindPropertyRelative("moveSpeed").floatValue = InitialEnemyMoveSpeed;
                 row.FindPropertyRelative("radius").floatValue = InitialEnemyRadius;
                 row.FindPropertyRelative("maxHealth").floatValue = InitialEnemyMaxHealth;
+                row.FindPropertyRelative("experience").intValue = InitialEnemyExperience;
                 row.FindPropertyRelative("visualId").stringValue = InitialEnemyVisualId;
                 so.FindProperty("separationPush").floatValue = InitialSeparationPush;
                 so.ApplyModifiedPropertiesWithoutUndo();
@@ -130,7 +155,46 @@ if (AssetDatabase.LoadAssetAtPath<WeaponTable>(WeaponTablePath) == null)
                 AssetDatabase.CreateAsset(asset, WeaponTablePath);
             }
 
-            
+            if (AssetDatabase.LoadAssetAtPath<ExperienceTable>(ExperienceTablePath) == null)
+            {
+                var asset = ScriptableObject.CreateInstance<ExperienceTable>();
+                var so = new SerializedObject(asset);
+                var curve = so.FindProperty("experienceToNext");
+                curve.arraySize = InitialExperienceToNext.Length;
+                for (int i = 0; i < InitialExperienceToNext.Length; i++) curve.GetArrayElementAtIndex(i).intValue = InitialExperienceToNext[i];
+                so.FindProperty("extraPerLevel").intValue = InitialExtraPerLevel;
+                so.FindProperty("maxGems").intValue = InitialMaxGems;
+                so.FindProperty("pullSpeed").floatValue = InitialGemPullSpeed;
+                so.FindProperty("collectDistance").floatValue = InitialGemCollectDistance;
+                so.FindProperty("gemVisualId").stringValue = InitialGemVisualId;
+                so.ApplyModifiedPropertiesWithoutUndo();
+                AssetDatabase.CreateAsset(asset, ExperienceTablePath);
+            }
+
+            if (AssetDatabase.LoadAssetAtPath<UpgradeTable>(UpgradeTablePath) == null)
+            {
+                var asset = ScriptableObject.CreateInstance<UpgradeTable>();
+                var so = new SerializedObject(asset);
+                var rows = so.FindProperty("rows");
+                rows.arraySize = InitialUpgrades.Length;
+                for (int i = 0; i < InitialUpgrades.Length; i++)
+                {
+                    var u = InitialUpgrades[i];
+                    var row = rows.GetArrayElementAtIndex(i);
+                    row.FindPropertyRelative("id").stringValue = u.id;
+                    row.FindPropertyRelative("nameKey").stringValue = "upgrade." + u.id + ".name";
+                    row.FindPropertyRelative("descriptionKey").stringValue = "upgrade." + u.id + ".desc";
+                    row.FindPropertyRelative("target").intValue = (int)u.target;
+                    row.FindPropertyRelative("op").intValue = (int)u.op;
+                    row.FindPropertyRelative("value").floatValue = u.value;
+                    row.FindPropertyRelative("maxStage").intValue = u.maxStage;
+                    row.FindPropertyRelative("weaponId").stringValue = u.weaponId;
+                }
+                so.FindProperty("choicesPerLevelUp").intValue = InitialChoicesPerLevelUp;
+                so.ApplyModifiedPropertiesWithoutUndo();
+                AssetDatabase.CreateAsset(asset, UpgradeTablePath);
+            }
+
             AssetDatabase.SaveAssets();
         }
     }

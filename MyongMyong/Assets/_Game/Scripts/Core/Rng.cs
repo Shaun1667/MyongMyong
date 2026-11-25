@@ -7,6 +7,8 @@ namespace Myong.Core
     public enum RandomStream
     {
         Spawn = 1,
+        /// <summary>레벨업 선택지 뽑기.</summary>
+        LevelUp = 2,
     }
 
     /// <summary>

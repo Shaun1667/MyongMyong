@@ -92,7 +92,59 @@ namespace Myong.Tests
             Assert.AreEqual(table.StartingWeapons.Count, rules.StartingWeapons.Length);
         }
 
-        
+        [Test]
+        public void ExperienceTable_Exists_AndIsValid()
+        {
+            var table = AssetDatabase.LoadAssetAtPath<ExperienceTable>("Assets/_Game/Data/ExperienceTable.asset");
+            Assert.IsNotNull(table);
+            Assert.IsNotEmpty(table.ExperienceToNext, "empty level curve");
+            foreach (int need in table.ExperienceToNext) Assert.GreaterOrEqual(need, 1);
+            Assert.GreaterOrEqual(table.ExtraPerLevel, 0);
+            Assert.Greater(table.MaxGems, 0);
+            Assert.Greater(table.PullSpeed, 0f);
+            Assert.Greater(table.CollectDistance, 0f);
+            Assert.IsFalse(string.IsNullOrEmpty(table.GemVisualId), "no gem visual id");
+            Assert.IsNotNull(table.ToRules());
+
+            var player = AssetDatabase.LoadAssetAtPath<PlayerTuning>("Assets/_Game/Data/PlayerTuning.asset");
+            Assert.Greater(player.PickupRadius, table.CollectDistance, "pickup radius must reach past the touch distance");
+            // 젬은 플레이어보다 빨리 끌려와야 따라잡는다.
+            Assert.Greater(table.PullSpeed, player.MoveSpeed);
+
+            var enemies = AssetDatabase.LoadAssetAtPath<EnemyTable>("Assets/_Game/Data/EnemyTable.asset");
+            Assert.IsTrue(enemies.Rows.Any(r => r.experience > 0), "no enemy drops experience");
+            foreach (var row in enemies.Rows) Assert.GreaterOrEqual(row.experience, 0, row.id);
+        }
+
+        [Test]
+        public void UpgradeTable_Exists_RowsAreValid_AndTextKeysAreInTheTable()
+        {
+            var table = AssetDatabase.LoadAssetAtPath<UpgradeTable>("Assets/_Game/Data/UpgradeTable.asset");
+            var weapons = AssetDatabase.LoadAssetAtPath<WeaponTable>("Assets/_Game/Data/WeaponTable.asset");
+            var text = TextTable.ParseCsv(System.IO.File.ReadAllText(UnityEngine.Application.dataPath + "/_Game/Text/strings.csv"));
+            Assert.IsNotNull(table);
+            Assert.IsNotEmpty(table.Rows);
+            Assert.GreaterOrEqual(table.ChoicesPerLevelUp, 1);
+            var ids = new System.Collections.Generic.HashSet<string>();
+            foreach (var row in table.Rows)
+            {
+                Assert.IsFalse(string.IsNullOrEmpty(row.id), "upgrade row without id");
+                Assert.IsTrue(ids.Add(row.id), "duplicate upgrade id " + row.id);
+                Assert.IsTrue(StatTargets.IsValid(row.target), row.id);
+                Assert.GreaterOrEqual(row.maxStage, 1, row.id);
+                if (row.op == StatOp.Multiply) Assert.Greater(row.value, 0f, row.id);
+                Assert.AreNotEqual(row.op == StatOp.Multiply ? 1f : 0f, row.value, "upgrade changes nothing: " + row.id);
+                if (!string.IsNullOrEmpty(row.weaponId))
+                {
+                    Assert.GreaterOrEqual(weapons.IndexOf(row.weaponId), 0, "unknown weapon " + row.weaponId);
+                    Assert.IsFalse(StatTargets.IsPlayerStat(row.target), "player stat upgrade names a weapon: " + row.id);
+                }
+                Assert.IsTrue(text.Has(row.nameKey), "name key missing from strings.csv: " + row.nameKey);
+                Assert.IsTrue(text.Has(row.descriptionKey), "description key missing from strings.csv: " + row.descriptionKey);
+            }
+            Assert.AreEqual(table.Rows.Count, table.ToRules(weapons).Rows.Length);
+        }
+
         [Test]
         public void SimulationTuning_Exists_AndIsValid()
         {

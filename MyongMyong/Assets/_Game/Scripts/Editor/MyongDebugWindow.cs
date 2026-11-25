@@ -28,6 +28,7 @@ namespace Myong.Editor
         Vector2 teleportTarget;
         int seedInput;
         int spawnCount = 200;
+        int experienceAmount = 5;
 
         [MenuItem("Myong/Debug/Debug Window")]
         public static void Open()
@@ -43,6 +44,7 @@ namespace Myong.Editor
                 new Section { Title = "플레이어", Draw = DrawPlayer },
                 new Section { Title = "적", Draw = DrawEnemies },
                 new Section { Title = "무기", Draw = DrawWeapons },
+                new Section { Title = "경험치 / 레벨", Draw = DrawExperience },
                 new Section { Title = "텍스트", Draw = DrawText },
             };
         }
@@ -145,7 +147,8 @@ namespace Myong.Editor
             for (int i = 0; i < root.DebugWeaponCount; i++)
             {
                 WeaponState weapon = root.DebugWeapon(i);
-                EditorGUILayout.LabelField($"무기 {i}", $"{root.DebugWeaponId(weapon.Kind)}  간격 {root.DebugFireIntervalTicks(weapon.Kind)}틱 · 남은 {weapon.CooldownTicks}틱");
+                EditorGUILayout.LabelField($"무기 {i}", $"{root.DebugWeaponId(weapon.Kind)}  간격 {root.DebugFireIntervalTicksNow(weapon.Kind)}틱(표 {root.DebugFireIntervalTicks(weapon.Kind)}) · 남은 {weapon.CooldownTicks}틱");
+                EditorGUILayout.LabelField("  강화 반영 값", $"피해 {root.DebugWeaponValue(weapon.Kind, StatTarget.Damage):0.##} · 한 번에 {root.DebugWeaponValue(weapon.Kind, StatTarget.ShotsPerVolley):0} · 관통 {root.DebugWeaponValue(weapon.Kind, StatTarget.Pierce):0} · 탄 속도 {root.DebugWeaponValue(weapon.Kind, StatTarget.BulletSpeed):0.##} · 사거리 {root.DebugWeaponValue(weapon.Kind, StatTarget.Range):0.##}");
             }
             EditorGUILayout.LabelField("탄 수", $"{root.DebugBulletCount} / {root.DebugBulletCapacity}  (쏜 누계 {root.DebugBulletsFiredTotal})");
             EditorGUILayout.LabelField("처치 수", root.DebugEnemiesKilledTotal.ToString());
@@ -157,6 +160,52 @@ namespace Myong.Editor
             bool invincible = root.DebugEnemiesInvincible;
             if (GUILayout.Button(StateChange + (invincible ? "적 무적 끄기" : "적 무적 켜기"))) root.DebugSetEnemiesInvincible(!invincible);
             if (GUILayout.Button(StateChange + "탄 모두 제거")) root.DebugClearBullets();
+        }
+
+        void DrawExperience(GameRoot root)
+        {
+            EditorGUILayout.LabelField("레벨", root.DebugLevel.ToString());
+            EditorGUILayout.LabelField("경험치", $"{root.DebugExperience} / {root.DebugExperienceToNext}  (누계 {root.DebugExperienceTotal})");
+            EditorGUILayout.LabelField("젬", $"{root.DebugGemCount} / {root.DebugGemCapacity}  (떨어뜨린 누계 {root.DebugGemsDroppedTotal} · 주운 누계 {root.DebugGemsCollectedTotal})");
+            EditorGUILayout.LabelField("플레이어(강화 반영)", $"이동 속도 {root.DebugMoveSpeed:0.##} · 줍는 반경 {root.DebugPickupRadius:0.##}");
+            EditorGUILayout.LabelField("레벨업 대기", root.DebugPendingLevelUps > 0 ? $"{root.DebugPendingLevelUps}개 (시뮬레이션 멈춤)" : "없음");
+
+            for (int i = 0; i < root.DebugChoiceCount; i++)
+            {
+                int row = root.DebugChoiceRow(i);
+                using (new EditorGUILayout.HorizontalScope())
+                {
+                    EditorGUILayout.LabelField($"선택지 {i + 1}", $"{root.DebugUpgradeId(row)}  {root.DebugUpgradeStage(row)} → {root.DebugUpgradeStage(row) + 1} / {root.DebugUpgradeMaxStage(row)}");
+                    if (GUILayout.Button(StateChange + "고르기", GUILayout.Width(110f))) root.DebugPressCard(i);
+                }
+            }
+
+            bool auto = root.DebugAutoChooseFirst;
+            bool newAuto = EditorGUILayout.ToggleLeft(StateChange + "레벨업 창이 뜨면 첫 카드를 바로 고르기", auto);
+            if (newAuto != auto) root.DebugAutoChooseFirst = newAuto;
+
+            using (new EditorGUILayout.HorizontalScope())
+            {
+                experienceAmount = Mathf.Max(1, EditorGUILayout.IntField("경험치", experienceAmount));
+                if (GUILayout.Button(StateChange + $"경험치 +{experienceAmount}")) root.DebugAddExperience(experienceAmount);
+            }
+            if (GUILayout.Button(StateChange + "레벨업 바로")) root.DebugLevelUpNow();
+
+            EditorGUILayout.LabelField("걸려 있는 강화 (단계 / 최대)");
+            for (int row = 0; row < root.DebugUpgradeRowCount; row++)
+            {
+                using (new EditorGUILayout.HorizontalScope())
+                {
+                    int stage = root.DebugUpgradeStage(row);
+                    int max = root.DebugUpgradeMaxStage(row);
+                    EditorGUILayout.LabelField("  " + root.DebugUpgradeId(row), stage > 0 ? $"{stage} / {max}" : $"- / {max}");
+                    using (new EditorGUI.DisabledScope(stage >= max))
+                    {
+                        if (GUILayout.Button(StateChange + "한 단계 걸기", GUILayout.Width(130f))) root.DebugApplyUpgrade(row);
+                    }
+                }
+            }
+            if (GUILayout.Button(StateChange + "강화 모두 초기화")) root.DebugResetUpgrades();
         }
 
         void DrawText(GameRoot root)

@@ -125,16 +125,33 @@ namespace Myong.Core
         readonly float[] nearestDistanceSquared;
         readonly int[] visited = new int[MaxCellsVisited];
         readonly float reach;
+        readonly int ticksPerSecond;
+        readonly int[] maxShots;
+        readonly int[] maxPierce;
+        readonly int hitMemory;
 
-        public WeaponRules(WeaponRulesData data, EnemyRulesData enemies, EnemyGrid grid, int ticksPerSecond)
+        public WeaponRules(WeaponRulesData data, UpgradeRulesData upgrades, EnemyRulesData enemies, EnemyGrid grid, int ticksPerSecond)
         {
+            this.ticksPerSecond = ticksPerSecond;
+            // 강화를 모두 최대 단계까지 받아도 넘치지 않게 작업 공간 · 맞힌 적 기억 칸을 판 시작 전에 잡는다.
+            maxShots = new int[data.Kinds.Length];
+            maxPierce = new int[data.Kinds.Length];
+            int widestVolley = 1;
+            hitMemory = 1;
+            for (int k = 0; k < data.Kinds.Length; k++)
+            {
+                maxShots[k] = Math.Max(1, upgrades.MaxPossible(StatTarget.ShotsPerVolley, k, data.Kinds[k].ShotsPerVolley));
+                maxPierce[k] = Math.Max(0, upgrades.MaxPossible(StatTarget.Pierce, k, data.Kinds[k].Pierce));
+                widestVolley = Math.Max(widestVolley, maxShots[k]);
+                hitMemory = Math.Max(hitMemory, maxPierce[k] + 1);
+            }
             this.data = data;
             enemyKinds = enemies.Kinds;
             this.grid = grid;
             tickSeconds = 1f / ticksPerSecond;
             intervalTicks = new int[data.Kinds.Length];
             for (int k = 0; k < intervalTicks.Length; k++) intervalTicks[k] = IntervalTicks(data.Kinds[k].FireIntervalSeconds, ticksPerSecond);
-            nearest = new int[Math.Max(1, data.MaxShotsPerVolley)];
+            nearest = new int[widestVolley];
             nearestDistanceSquared = new float[nearest.Length];
             reach = data.MaxBulletRadius + enemies.MaxRadius;
         }
@@ -147,12 +164,31 @@ namespace Myong.Core
 
         public int IntervalTicksOf(int kind) => intervalTicks[kind];
 
+        /// <summary>강화가 걸린 발사 간격(틱).</summary>
+        public int IntervalTicksOf(World world, int kind) => IntervalTicks(Value(world, kind, StatTarget.FireInterval), ticksPerSecond);
+
+        /// <summary>강화가 걸린 무기 값. 표에 없는 대상(플레이어 값)은 0에서 시작한다.</summary>
+        public float Value(World world, int kind, StatTarget target)
+        {
+            ref readonly WeaponKindData k = ref data.Kinds[kind];
+            float baseValue = target == StatTarget.FireInterval ? k.FireIntervalSeconds
+                : target == StatTarget.Damage ? k.Damage
+                : target == StatTarget.ShotsPerVolley ? k.ShotsPerVolley
+                : target == StatTarget.Pierce ? k.Pierce
+                : target == StatTarget.BulletSpeed ? k.BulletSpeed
+                : target == StatTarget.Range ? k.Range
+                : 0f;
+            if (target == StatTarget.ShotsPerVolley) return Stats.IntValue(world, kind, target, k.ShotsPerVolley, 1, maxShots[kind]);
+            if (target == StatTarget.Pierce) return Stats.IntValue(world, kind, target, k.Pierce, 0, maxPierce[kind]);
+            return Math.Max(0f, Stats.Value(world, kind, target, baseValue));
+        }
+
         public void InitWorld(World world)
         {
             world.Weapons = new WeaponState[data.StartingWeapons.Length];
             for (int i = 0; i < world.Weapons.Length; i++) world.Weapons[i] = new WeaponState { Kind = data.StartingWeapons[i] };
             world.Bullets = new BulletState[data.MaxBullets];
-            world.BulletHitStride = Math.Max(1, data.HitMemory);
+            world.BulletHitStride = hitMemory;
             world.BulletHitIds = new int[data.MaxBullets * world.BulletHitStride];
         }
 
@@ -168,11 +204,14 @@ namespace Myong.Core
                 if (weapon.CooldownTicks > 0) weapon.CooldownTicks--;
                 if (weapon.CooldownTicks > 0 || world.FiringPaused) continue;
 
-                WeaponKindData kind = data.Kinds[weapon.Kind];
-                int found = FindNearest(world, muzzle, kind.Range, kind.ShotsPerVolley);
+                int kindIndex = weapon.Kind;
+                float range = Value(world, kindIndex, StatTarget.Range);
+                int shots = Stats.IntValue(world, kindIndex, StatTarget.ShotsPerVolley, data.Kinds[kindIndex].ShotsPerVolley, 1, maxShots[kindIndex]);
+                int pierce = Stats.IntValue(world, kindIndex, StatTarget.Pierce, data.Kinds[kindIndex].Pierce, 0, maxPierce[kindIndex]);
+                int found = FindNearest(world, muzzle, range, shots);
                 if (found == 0) continue;
 
-                for (int s = 0; s < kind.ShotsPerVolley; s++)
+                for (int s = 0; s < shots; s++)
                 {
                     if (world.BulletCount >= world.Bullets.Length) break;
                     Vec2 target = world.Enemies[nearest[s % found]].Position;
@@ -185,14 +224,14 @@ namespace Myong.Core
                         Position = muzzle,
                         PreviousPosition = muzzle,
                         Direction = direction,
-                        RangeLeft = kind.Range,
-                        HitsLeft = kind.Pierce + 1,
+                        RangeLeft = range,
+                        HitsLeft = pierce + 1,
                         HitCount = 0,
                     };
                     world.BulletCount++;
                     world.BulletsFiredTotal++;
                 }
-                weapon.CooldownTicks = intervalTicks[weapon.Kind];
+                weapon.CooldownTicks = IntervalTicksOf(world, kindIndex);
             }
         }
 
@@ -234,13 +273,13 @@ namespace Myong.Core
                 ref BulletState b = ref world.Bullets[i];
                 WeaponKindData kind = data.Kinds[b.Kind];
                 b.PreviousPosition = b.Position;
-                float travel = Math.Min(kind.BulletSpeed * tickSeconds, b.RangeLeft);
+                float travel = Math.Min(Value(world, b.Kind, StatTarget.BulletSpeed) * tickSeconds, b.RangeLeft);
                 Vec2 start = b.Position;
                 Vec2 end = start + b.Direction * travel;
                 b.Position = end;
                 b.RangeLeft -= travel;
 
-                HitAlong(world, i, start, end, kind);
+                HitAlong(world, i, start, end, kind, Value(world, b.Kind, StatTarget.Damage));
 
                 if (b.HitsLeft <= 0 || b.RangeLeft <= 0f)
                 {
@@ -252,7 +291,7 @@ namespace Myong.Core
         }
 
         // 길 위에서 먼저 닿는 적부터 HitsLeft가 남는 동안 맞힌다. 한 탄은 같은 적을 두 번 맞히지 않는다.
-        void HitAlong(World world, int bulletIndex, Vec2 start, Vec2 end, in WeaponKindData kind)
+        void HitAlong(World world, int bulletIndex, Vec2 start, Vec2 end, in WeaponKindData kind, float damage)
         {
             ref BulletState b = ref world.Bullets[bulletIndex];
             EnemyState[] enemies = world.Enemies;
@@ -294,7 +333,7 @@ namespace Myong.Core
                 e.LastHitTick = world.Tick;
                 if (!world.EnemiesInvincible)
                 {
-                    e.Health -= kind.Damage;
+                    e.Health -= damage;
                 }
                 if (!world.EnemiesInvincible && e.Health <= 0f)
                 {

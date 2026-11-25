@@ -38,7 +38,7 @@ namespace Myong.Unity
         public EnemyRulesData ToRules(EnemyTable enemies)
         {
             var kinds = new EnemyKindData[enemies.Rows.Count];
-            for (int i = 0; i < kinds.Length; i++) kinds[i] = new EnemyKindData(enemies.Rows[i].moveSpeed, enemies.Rows[i].radius, enemies.Rows[i].maxHealth);
+            for (int i = 0; i < kinds.Length; i++) kinds[i] = new EnemyKindData(enemies.Rows[i].moveSpeed, enemies.Rows[i].radius, enemies.Rows[i].maxHealth, enemies.Rows[i].experience);
 
             var list = new List<SpawnPhaseData>(phases.Count);
             foreach (var phase in phases)

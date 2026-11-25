@@ -7,10 +7,13 @@ namespace Myong.Core
     {
         /// <summary>이동 속도(유닛/초).</summary>
         public readonly float MoveSpeed;
+        /// <summary>줍는 반경(유닛). 이 안에 들어온 경험치 젬은 플레이어 쪽으로 끌려온다.</summary>
+        public readonly float PickupRadius;
 
-        public PlayerTuningData(float moveSpeed)
+        public PlayerTuningData(float moveSpeed, float pickupRadius = 0f)
         {
             MoveSpeed = moveSpeed;
+            PickupRadius = pickupRadius;
         }
     }
 
@@ -37,9 +40,12 @@ namespace Myong.Core
         readonly PlayerTuningData player;
         readonly EnemyRulesData enemies;
         readonly WeaponRulesData weapons;
+        readonly ExperienceRulesData experience;
+        readonly UpgradeRulesData upgrades;
         readonly EnemyGrid enemyGrid;
         readonly EnemySeparation separation;
         readonly WeaponRules weaponRules;
+        readonly ProgressionRules progression;
 
         public Simulation(int ticksPerSecond, PlayerTuningData player)
             : this(ticksPerSecond, player, EnemyRulesData.None, WeaponRulesData.None)
@@ -52,6 +58,11 @@ namespace Myong.Core
         }
 
         public Simulation(int ticksPerSecond, PlayerTuningData player, EnemyRulesData enemies, WeaponRulesData weapons)
+            : this(ticksPerSecond, player, enemies, weapons, ExperienceRulesData.None, UpgradeRulesData.None)
+        {
+        }
+
+        public Simulation(int ticksPerSecond, PlayerTuningData player, EnemyRulesData enemies, WeaponRulesData weapons, ExperienceRulesData experience, UpgradeRulesData upgrades)
         {
             if (ticksPerSecond <= 0) throw new ArgumentOutOfRangeException(nameof(ticksPerSecond));
             TicksPerSecond = ticksPerSecond;
@@ -59,9 +70,16 @@ namespace Myong.Core
             this.player = player;
             this.enemies = enemies ?? throw new ArgumentNullException(nameof(enemies));
             this.weapons = weapons ?? throw new ArgumentNullException(nameof(weapons));
+            this.experience = experience ?? throw new ArgumentNullException(nameof(experience));
+            this.upgrades = upgrades ?? throw new ArgumentNullException(nameof(upgrades));
+            foreach (var row in upgrades.Rows)
+            {
+                if (row.WeaponKind >= weapons.Kinds.Length) throw new ArgumentOutOfRangeException(nameof(upgrades), "upgrade refers to a missing weapon kind");
+            }
             enemyGrid = new EnemyGrid(enemies.MaxAlive, enemies.MaxRadius);
             separation = new EnemySeparation(enemyGrid, enemies.MaxAlive);
-            weaponRules = new WeaponRules(weapons, enemies, enemyGrid, ticksPerSecond);
+            weaponRules = new WeaponRules(weapons, upgrades, enemies, enemyGrid, ticksPerSecond);
+            progression = new ProgressionRules(experience, upgrades, enemies, player, ticksPerSecond);
         }
 
         public int TicksPerSecond { get; }
@@ -72,8 +90,27 @@ namespace Myong.Core
 
         public WeaponRulesData Weapons => weapons;
 
-        /// <summary>무기 종류의 발사 간격(틱). 초 × 초당 틱을 반올림, 최소 1.</summary>
+        public ExperienceRulesData Experience => experience;
+
+        public UpgradeRulesData Upgrades => upgrades;
+
+        /// <summary>무기 종류의 기본 발사 간격(틱, 강화 없이). 초 × 초당 틱을 반올림, 최소 1.</summary>
         public int FireIntervalTicks(int weaponKind) => weaponRules.IntervalTicksOf(weaponKind);
+
+        /// <summary>이 판에서 강화가 걸린 발사 간격(틱).</summary>
+        public int FireIntervalTicks(World world, int weaponKind) => weaponRules.IntervalTicksOf(world, weaponKind);
+
+        /// <summary>이 판에서 강화가 걸린 무기 값(표의 기본 값에 강화를 건 것).</summary>
+        public float WeaponValue(World world, int weaponKind, StatTarget target) => weaponRules.Value(world, weaponKind, target);
+
+        /// <summary>이 판에서 강화가 걸린 이동 속도.</summary>
+        public float MoveSpeed(World world) => progression.MoveSpeed(world);
+
+        /// <summary>이 판에서 강화가 걸린 줍는 반경.</summary>
+        public float PickupRadius(World world) => progression.PickupRadius(world);
+
+        /// <summary>level → level+1에 필요한 경험치.</summary>
+        public int ExperienceToNext(int level) => progression.ToNext(level);
 
         /// <summary>지금 탄이 나올 자리(플레이어 위치 + 총구 오프셋).</summary>
         public Vec2 Muzzle(World world) => weaponRules.Muzzle(world);
@@ -84,11 +121,13 @@ namespace Myong.Core
             {
                 Seed = seed,
                 SpawnRandom = Rng.ForStream(seed, RandomStream.Spawn),
+                LevelUpRandom = Rng.ForStream(seed, RandomStream.LevelUp),
                 Enemies = new EnemyState[enemies.MaxAlive],
             };
             world.Player.Id = world.AllocateEntityId();
             world.Player.FacingX = Facing.Right;
             weaponRules.InitWorld(world);
+            progression.InitWorld(world, weapons.Kinds.Length);
             return world;
         }
 
@@ -97,14 +136,18 @@ namespace Myong.Core
 
         /// <summary>
         /// 순서: 플레이어 이동 → 적 추적 → 적끼리 밀어내기 → 발사(사거리 안 가장 가까운 적) → 탄 이동 · 맞기
-        /// → 죽은 적 빼기 → 스폰(새 적은 그 틱에는 움직이지 않는다). 쏜 틱에 탄도 한 틱만큼 날아간다.
+        /// → 젬 끌기 · 줍기(경험치 · 레벨) → 죽은 적 자리에 젬 떨어뜨리기 → 죽은 적 빼기 → 스폰(새 적 · 새 젬은 그 틱에는 움직이지 않는다).
+        /// 레벨업 선택을 기다리는 동안(PendingLevelUps > 0)에는 아무것도 하지 않는다 — 틱도 멈춘다.
         /// </summary>
         public void Step(World world, in InputFrame input)
         {
+            if (world.PendingLevelUps > 0) return;
             StepPlayer(world, input);
             StepEnemies(world);
             weaponRules.Fire(world);
             weaponRules.StepBullets(world);
+            progression.StepGems(world);
+            progression.DropGems(world);
             WeaponRules.RemoveDeadEnemies(world);
             StepSpawning(world);
             world.Tick++;
@@ -115,7 +158,7 @@ namespace Myong.Core
             ref PlayerState p = ref world.Player;
             Vec2 move = MoveRules.ClampMove(input.Move);
             p.PreviousPosition = p.Position;
-            p.Velocity = move * player.MoveSpeed;
+            p.Velocity = move * progression.MoveSpeed(world);
             p.Position = p.Position + p.Velocity * TickSeconds;
             if (move.X > 0f) p.FacingX = Facing.Right;
             else if (move.X < 0f) p.FacingX = Facing.Left;
@@ -206,6 +249,32 @@ namespace Myong.Core
         {
             world.Player.Position = position;
             world.Player.PreviousPosition = position;
+        }
+
+        // ---- 경험치 · 레벨업 ----
+
+        /// <summary>경험치를 바로 더한다(디버그 · 나중의 보상). 레벨이 오르면 대기열에 쌓이고 선택지를 뽑는다.</summary>
+        public void AddExperience(World world, int amount)
+        {
+            progression.GainExperience(world, amount);
+        }
+
+        /// <summary>지금 보이는 선택지 중 choice번째(0부터)를 고른다. 대기열이 남으면 다음 선택지가 뽑힌다. 고를 수 없으면 false.</summary>
+        public bool ChooseUpgrade(World world, int choice)
+        {
+            return progression.Choose(world, choice);
+        }
+
+        /// <summary>강화 표의 row번째 줄을 한 단계 건다(디버그). 최대 단계면 false.</summary>
+        public bool ApplyUpgrade(World world, int row)
+        {
+            return progression.ApplyUpgrade(world, row);
+        }
+
+        /// <summary>걸린 강화를 모두 푼다(디버그). 레벨 · 경험치는 그대로.</summary>
+        public void ResetUpgrades(World world)
+        {
+            Stats.Reset(world);
         }
     }
 }

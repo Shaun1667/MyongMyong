@@ -1,0 +1,20 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: c02cdab631e196a48826eccb66f9174a, type: 3}
+  m_Name: ExperienceTable
+  m_EditorClassIdentifier: Myong.Unity::Myong.Unity.ExperienceTable
+  experienceToNext: 050000000a0000000f000000140000001a00000020000000260000002d000000340000003c000000
+  extraPerLevel: 8
+  maxGems: 400
+  pullSpeed: 9
+  collectDistance: 0.4
+  gemVisualId: gem_basic

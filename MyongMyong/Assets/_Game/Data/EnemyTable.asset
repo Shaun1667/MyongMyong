@@ -17,5 +17,6 @@ MonoBehaviour:
     moveSpeed: 1.8
     radius: 0.3
     maxHealth: 10
+    experience: 1
     visualId: enemy_basic
   separationPush: 0.5

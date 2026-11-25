@@ -20,6 +20,8 @@ namespace Myong.Editor
         const string StringsPath = "Assets/_Game/Text/strings.csv";
         const string InputActionsPath = "Assets/InputSystem_Actions.inputactions";
         const string MoveActionName = "Player/Move";
+        // 레벨업 카드 고르기 액션. 에셋에 없으면 빈 칸 — PlayerInputReader가 숫자키 임시 액션을 쓴다.
+        static readonly string[] ChooseCardActionNames = { "UI/ChooseCard1", "UI/ChooseCard2", "UI/ChooseCard3" };
         const string GroundTexturePath = "Assets/_Game/Art/Temp/ground_grid.png";
         const string SpriteMaterialPath = "Packages/com.unity.render-pipelines.universal/Runtime/Materials/Sprite-Unlit-Default.mat";
         const string HelloKey = "ui.debug.hello";
@@ -28,6 +30,8 @@ namespace Myong.Editor
         const int GroundSortingOrder = -1000;
         const int EnemySortingOrder = -1; // 플레이어(0) 뒤, 바닥 앞
         const int BulletSortingOrder = 1; // 플레이어 · 적 앞
+        const int GemSortingOrder = -2; // 바닥 위, 적 뒤
+        const float GemPlaceholderRadius = 0.09f; // 지름 6도트 단색 도트(표시만)
         const int GroundTileDots = 64;
         const int GroundCellDots = 32;
         const int HudFontSize = 20;
@@ -115,12 +119,30 @@ namespace Myong.Editor
             SetupUtil.SetReference(bulletPool, "spriteMaterial", material);
             SetupUtil.SetInt(bulletPool, "sortingOrder", BulletSortingOrder);
 
+            // 경험치 젬 렌더러 풀 (렌더러는 Play 때 GameRoot가 젬 최대 수만큼 미리 만든다)
+            var gemsObject = FindOrCreate(scene, "Gems");
+            var gemPool = GetOrAdd<GemRenderPool>(gemsObject);
+            SetupUtil.SetReference(gemPool, "spriteMaterial", material);
+            SetupUtil.SetInt(gemPool, "sortingOrder", GemSortingOrder);
+            var gemSo = new SerializedObject(gemPool);
+            gemSo.FindProperty("placeholderRadius").floatValue = GemPlaceholderRadius;
+            gemSo.ApplyModifiedPropertiesWithoutUndo();
+
             // 컴포지션 루트 + 입력
             var rootObject = FindOrCreate(scene, "GameRoot");
             var input = GetOrAdd<PlayerInputReader>(rootObject);
-            var moveAction = AssetDatabase.LoadAllAssetsAtPath(InputActionsPath).OfType<InputActionReference>().FirstOrDefault(r => r.name == MoveActionName);
+            var actionReferences = AssetDatabase.LoadAllAssetsAtPath(InputActionsPath).OfType<InputActionReference>().ToList();
+            var moveAction = actionReferences.FirstOrDefault(r => r.name == MoveActionName);
             if (moveAction == null) Debug.LogError($"[Myong Setup] input action '{MoveActionName}' not found in {InputActionsPath}");
             SetupUtil.SetReference(input, "move", moveAction);
+            var inputSo = new SerializedObject(input);
+            var chooseCard = inputSo.FindProperty("chooseCard");
+            chooseCard.arraySize = ChooseCardActionNames.Length;
+            for (int i = 0; i < ChooseCardActionNames.Length; i++)
+            {
+                chooseCard.GetArrayElementAtIndex(i).objectReferenceValue = actionReferences.FirstOrDefault(r => r.name == ChooseCardActionNames[i]);
+            }
+            inputSo.ApplyModifiedPropertiesWithoutUndo();
             var gameRoot = GetOrAdd<GameRoot>(rootObject);
             SetupUtil.SetReference(gameRoot, "stringsCsv", AssetDatabase.LoadAssetAtPath<TextAsset>(StringsPath));
             SetupUtil.SetReference(gameRoot, "playerTuning", AssetDatabase.LoadAssetAtPath<PlayerTuning>(DataSetup.PlayerTuningPath));
@@ -132,6 +154,9 @@ namespace Myong.Editor
             SetupUtil.SetReference(gameRoot, "enemyView", enemyPool);
             SetupUtil.SetReference(gameRoot, "weaponTable", AssetDatabase.LoadAssetAtPath<WeaponTable>(DataSetup.WeaponTablePath));
             SetupUtil.SetReference(gameRoot, "bulletView", bulletPool);
+            SetupUtil.SetReference(gameRoot, "experienceTable", AssetDatabase.LoadAssetAtPath<ExperienceTable>(DataSetup.ExperienceTablePath));
+            SetupUtil.SetReference(gameRoot, "upgradeTable", AssetDatabase.LoadAssetAtPath<UpgradeTable>(DataSetup.UpgradeTablePath));
+            SetupUtil.SetReference(gameRoot, "gemView", gemPool);
 
             // HUD (텍스트 표 확인용 임시 라벨)
             var hud = FindOrCreate(scene, "HUD");
@@ -163,6 +188,12 @@ namespace Myong.Editor
             var shadow = GetOrAdd<UnityEngine.UI.Shadow>(labelObject);
             shadow.effectColor = Color.black;
             SetupUtil.SetString(GetOrAdd<LocalizedLabel>(labelObject), "textKey", HelloKey);
+
+            // 경험치 바 · 레벨 숫자 · 레벨업 창 + uGUI 입력(EventSystem)
+            var (experienceHud, levelUpView) = HudBuilder.Build(hud);
+            SetupUtil.SetReference(gameRoot, "experienceHud", experienceHud);
+            SetupUtil.SetReference(gameRoot, "levelUpView", levelUpView);
+            HudBuilder.EnsureEventSystem(scene);
 
             EditorSceneManager.MarkSceneDirty(scene);
             EditorSceneManager.SaveScene(scene, ScenePath);

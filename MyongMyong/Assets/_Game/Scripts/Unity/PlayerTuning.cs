@@ -10,8 +10,13 @@ namespace Myong.Unity
         [Tooltip("Move speed in units per second (1 unit = PixelArt.PixelsPerUnit dots).")]
         [SerializeField, Min(0f)] float moveSpeed;
 
+        [Tooltip("Pickup radius in units: experience gems inside it fly to the player.")]
+        [SerializeField, Min(0f)] float pickupRadius;
+
         public float MoveSpeed => moveSpeed;
 
-        public PlayerTuningData ToData() => new PlayerTuningData(moveSpeed);
+        public float PickupRadius => pickupRadius;
+
+        public PlayerTuningData ToData() => new PlayerTuningData(moveSpeed, pickupRadius);
     }
 }
