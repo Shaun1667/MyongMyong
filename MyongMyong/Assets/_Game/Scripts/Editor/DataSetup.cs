@@ -18,6 +18,15 @@ namespace Myong.Editor
         public const string WeaponTablePath = Folder + "/WeaponTable.asset";
         public const string ExperienceTablePath = Folder + "/ExperienceTable.asset";
         public const string UpgradeTablePath = Folder + "/UpgradeTable.asset";
+        public const string JoystickTuningPath = Folder + "/JoystickTuning.asset";
+
+        // 가상 조이스틱 첫 값 (BALANCE.md와 같은 값. 기준은 에셋. 거리는 HUD 단위 = 기준 해상도 도트)
+        const float InitialJoystickRadius = 72f;
+        const float InitialJoystickDeadZone = 0.2f;
+        const int InitialJoystickDirections = 8;
+        const bool InitialJoystickAnalogSpeed = false;
+        const float InitialJoystickKnobRadius = 28f;
+        const float InitialJoystickTouchAreaWidth = 1f;
 
         const float InitialMoveSpeed = 4.5f;
         const int InitialTicksPerSecond = 60;
@@ -203,6 +212,20 @@ if (AssetDatabase.LoadAssetAtPath<WeaponTable>(WeaponTablePath) == null)
                 so.FindProperty("choicesPerLevelUp").intValue = InitialChoicesPerLevelUp;
                 so.ApplyModifiedPropertiesWithoutUndo();
                 AssetDatabase.CreateAsset(asset, UpgradeTablePath);
+            }
+
+            if (AssetDatabase.LoadAssetAtPath<JoystickTuning>(JoystickTuningPath) == null)
+            {
+                var asset = ScriptableObject.CreateInstance<JoystickTuning>();
+                var so = new SerializedObject(asset);
+                so.FindProperty("radius").floatValue = InitialJoystickRadius;
+                so.FindProperty("deadZone").floatValue = InitialJoystickDeadZone;
+                so.FindProperty("directionCount").intValue = InitialJoystickDirections;
+                so.FindProperty("analogSpeed").boolValue = InitialJoystickAnalogSpeed;
+                so.FindProperty("knobRadius").floatValue = InitialJoystickKnobRadius;
+                so.FindProperty("touchAreaWidth").floatValue = InitialJoystickTouchAreaWidth;
+                so.ApplyModifiedPropertiesWithoutUndo();
+                AssetDatabase.CreateAsset(asset, JoystickTuningPath);
             }
 
             AssetDatabase.SaveAssets();

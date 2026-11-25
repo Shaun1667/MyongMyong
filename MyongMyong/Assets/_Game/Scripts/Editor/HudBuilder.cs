@@ -214,6 +214,45 @@ namespace Myong.Editor
             return view;
         }
 
+        /// <summary>
+        /// 화면 터치용 플로팅 가상 조이스틱(터치 영역 + 바탕 고리 + 손잡이). HUD의 맨 앞 형제(= 가장 뒤) — 레벨업 · 판 끝 창이 그 위에서 터치를 받는다.
+        /// 터치 영역 넓이 · 크기는 Play 때 JoystickTuning 값으로 VirtualJoystick이 맞춘다. 그림은 코드가 만드는 임시 원.
+        /// </summary>
+        public static VirtualJoystick BuildJoystick(GameObject hudRoot, JoystickTuning tuning)
+        {
+            GetOrAdd<UnityEngine.UI.GraphicRaycaster>(hudRoot);
+            var area = Child(hudRoot.transform, "Joystick");
+            Stretch(area);
+            area.SetAsFirstSibling();
+            Image(area.gameObject, Color.clear, true); // 보이지 않는 터치 영역
+
+            var stickBase = Child(area, "Base");
+            Place(stickBase, new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f), Vector2.zero, Vector2.one * JoystickPreviewSize);
+            var baseImage = Image(stickBase.gameObject, Color.white, false);
+            var knob = Child(area, "Knob");
+            Place(knob, new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f), Vector2.zero, Vector2.one * JoystickPreviewSize * 0.5f);
+            var knobImage = Image(knob.gameObject, Color.white, false);
+
+            var joystick = GetOrAdd<VirtualJoystick>(area.gameObject);
+            var so = new SerializedObject(joystick);
+            so.FindProperty("stickControlPath").stringValue = JoystickControlPath;
+            so.FindProperty("tuning").objectReferenceValue = tuning;
+            so.FindProperty("stickBase").objectReferenceValue = stickBase;
+            so.FindProperty("knob").objectReferenceValue = knob;
+            so.FindProperty("baseImage").objectReferenceValue = baseImage;
+            so.FindProperty("knobImage").objectReferenceValue = knobImage;
+            so.ApplyModifiedPropertiesWithoutUndo();
+            // 누르기 전에는 안 보인다(VirtualJoystick이 켜고 끈다).
+            stickBase.gameObject.SetActive(false);
+            knob.gameObject.SetActive(false);
+            return joystick;
+        }
+
+        // 조이스틱 값이 들어갈 자리: 가상 패드의 왼스틱 = Player/Move의 패드 바인딩과 같은 길.
+        const string JoystickControlPath = "<Gamepad>/leftStick";
+        // 에디터에서 보이는 임시 크기(표시만). Play 때는 JoystickTuning의 반경으로 바뀐다.
+        const float JoystickPreviewSize = 144f;
+
         /// <summary>uGUI 입력: EventSystem + Input System UI 모듈(마우스 클릭 · 패드 · 키보드 이동과 확인). 액션은 프로젝트 기본 UI 액션.</summary>
         public static void EnsureEventSystem(Scene scene)
         {

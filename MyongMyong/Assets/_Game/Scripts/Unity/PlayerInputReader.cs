@@ -5,7 +5,7 @@ using UnityEngine.InputSystem;
 namespace Myong.Unity
 {
     /// <summary>
-    /// 입력을 읽는 단 한 곳. 키보드(WASD · 방향키) · 패드 왼스틱 · (나중의) 가상 조이스틱이
+    /// 입력을 읽는 단 한 곳. 키보드(WASD · 방향키) · 패드 왼스틱 · 화면 가상 조이스틱(VirtualJoystick — 가상 패드의 왼스틱에 값을 넣는다)이
     /// 모두 Input System의 Move 액션 하나로 모여 같은 벡터가 된다.
     /// 레벨업 카드 고르기(숫자키)도 여기서 읽는다 — 마우스 클릭 · 패드는 Input System UI 모듈이 버튼으로 넘긴다.
     /// </summary>

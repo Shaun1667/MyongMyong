@@ -23,6 +23,7 @@ namespace Myong.Unity
 
         [Header("Scene")]
         [SerializeField] PlayerInputReader input;
+        [SerializeField] VirtualJoystick joystick;
         [SerializeField] PlayerView playerView;
         [SerializeField] EnemyRenderPool enemyView;
         [SerializeField] BulletRenderPool bulletView;
@@ -93,6 +94,8 @@ namespace Myong.Unity
         {
             float tick = simulation.TickSeconds;
             int budget = simulationTuning.MaxTicksPerFrame;
+            // 레벨업 · 판 끝 창이 떠 있으면 가상 조이스틱을 막는다(누르던 것도 놓아 입력 0 — 창 뒤에서 이동으로 새지 않게).
+            if (joystick != null) joystick.SetBlocked(world.IsChoosingUpgrade || world.IsOver);
             var frame = new InputFrame { Move = input != null ? input.ReadMove() : Vec2.Zero };
 
             // 레벨업 선택: 숫자키(입력 액션) 또는 디버그 자동 선택. 클릭 · 패드는 OnCardChosen.
@@ -414,6 +417,38 @@ namespace Myong.Unity
         public void DebugClearMoveInput()
         {
             if (input != null) input.DebugClearMove();
+        }
+
+        // ---- 가상 조이스틱 ----
+
+        /// <summary>이번 프레임에 Move 액션에서 읽은 이동 입력(디버그 대신 넣기가 켜져 있으면 그 값).</summary>
+        public Vec2 DebugMoveInput => input != null ? input.ReadMove() : Vec2.Zero;
+
+        public bool DebugHasJoystick => joystick != null;
+
+        public bool DebugJoystickActive => joystick != null && joystick.IsActive;
+
+        public bool DebugJoystickBlocked => joystick != null && joystick.IsBlocked;
+
+        /// <summary>조이스틱이 Move 액션에 넣고 있는 값.</summary>
+        public Vec2 DebugJoystickValue => joystick != null ? joystick.Value : Vec2.Zero;
+
+        /// <summary>[상태 변경] 손가락 흉내: 화면 픽셀 자리를 누른다(uGUI 포인터 이벤트와 같은 길).</summary>
+        public void DebugJoystickPress(float screenX, float screenY)
+        {
+            if (joystick != null) joystick.DebugPress(new Vector2(screenX, screenY));
+        }
+
+        /// <summary>[상태 변경] 손가락 흉내: 누른 채 화면 픽셀 자리로 끈다.</summary>
+        public void DebugJoystickDrag(float screenX, float screenY)
+        {
+            if (joystick != null) joystick.DebugDrag(new Vector2(screenX, screenY));
+        }
+
+        /// <summary>[상태 변경] 손가락 흉내: 뗀다.</summary>
+        public void DebugJoystickRelease()
+        {
+            if (joystick != null) joystick.DebugRelease();
         }
 
         /// <summary>피격 애니메이션만 재생(보기만).</summary>

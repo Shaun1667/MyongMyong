@@ -202,6 +202,9 @@ namespace Myong.Editor
             SetupUtil.SetReference(gameRoot, "experienceHud", experienceHud);
             SetupUtil.SetReference(gameRoot, "levelUpView", levelUpView);
             SetupUtil.SetReference(gameRoot, "gameOverView", HudBuilder.BuildGameOver(hud));
+            // 화면 가상 조이스틱(터치 · 에디터에서는 마우스) — 값은 Move 액션의 패드 왼스틱 자리로 들어간다
+            var joystick = HudBuilder.BuildJoystick(hud, AssetDatabase.LoadAssetAtPath<JoystickTuning>(DataSetup.JoystickTuningPath));
+            SetupUtil.SetReference(gameRoot, "joystick", joystick);
             HudBuilder.EnsureEventSystem(scene);
 
             EditorSceneManager.MarkSceneDirty(scene);

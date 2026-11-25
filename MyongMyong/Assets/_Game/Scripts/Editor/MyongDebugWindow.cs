@@ -43,6 +43,7 @@ namespace Myong.Editor
             {
                 new Section { Title = "판 · 시드", Draw = DrawRun },
                 new Section { Title = "플레이어", Draw = DrawPlayer },
+                new Section { Title = "가상 조이스틱", Draw = DrawJoystick },
                 new Section { Title = "적", Draw = DrawEnemies },
                 new Section { Title = "무기", Draw = DrawWeapons },
                 new Section { Title = "경험치 / 레벨", Draw = DrawExperience },
@@ -145,6 +146,41 @@ namespace Myong.Editor
             }
 
             if (GUILayout.Button("피격 애니메이션 보기")) root.DebugPlayHit();
+        }
+
+        void DrawJoystick(GameRoot root)
+        {
+            if (!root.DebugHasJoystick)
+            {
+                EditorGUILayout.HelpBox("씬에 조이스틱이 없습니다. Myong/Setup/Build Game Scene을 돌리세요.", MessageType.Info);
+                return;
+            }
+            EditorGUILayout.LabelField("상태", $"{(root.DebugJoystickActive ? "눌림" : "안 눌림")} · {(root.DebugJoystickBlocked ? "막힘(레벨업 · 판 끝 창)" : "받음")}");
+            EditorGUILayout.LabelField("조이스틱 값", root.DebugJoystickValue.ToString());
+            EditorGUILayout.LabelField("Move 액션 값", root.DebugMoveInput.ToString());
+            EditorGUILayout.LabelField(StateChange + "손가락 흉내 (화면 왼쪽 1/4 자리를 눌러 그 방향으로 화면 높이의 1/4만큼 끌기)");
+            var camera = Camera.main;
+            float width = camera != null ? camera.pixelWidth : 960f;
+            float height = camera != null ? camera.pixelHeight : 540f;
+            float x0 = width * 0.25f;
+            float y0 = height * 0.5f;
+            float reach = height * 0.25f;
+            for (int y = 1; y >= -1; y--)
+            {
+                using (new EditorGUILayout.HorizontalScope())
+                {
+                    GUILayout.Space(EditorGUI.indentLevel * 15f);
+                    for (int x = -1; x <= 1; x++)
+                    {
+                        string name = x == 0 && y == 0 ? "떼기" : $"{x},{y}";
+                        if (!GUILayout.Button(name, GUILayout.Width(48f))) continue;
+                        root.DebugJoystickRelease();
+                        if (x == 0 && y == 0) continue;
+                        root.DebugJoystickPress(x0, y0);
+                        root.DebugJoystickDrag(x0 + x * reach, y0 + y * reach);
+                    }
+                }
+            }
         }
 
         void DrawEnemies(GameRoot root)
