@@ -15,10 +15,13 @@ namespace Myong.Unity
         [SerializeField] TextAsset stringsCsv;
         [SerializeField] PlayerTuning playerTuning;
         [SerializeField] SimulationTuning simulationTuning;
+        [SerializeField] EnemyTable enemyTable;
+        [SerializeField] SpawnTable spawnTable;
 
         [Header("Scene")]
         [SerializeField] PlayerInputReader input;
         [SerializeField] PlayerView playerView;
+        [SerializeField] EnemyRenderPool enemyView;
 
         [Header("Seed")]
         [Tooltip("Off: a new seed every run. On: always Fixed Seed.")]
@@ -28,6 +31,9 @@ namespace Myong.Unity
         Simulation simulation;
         World world;
         float accumulator;
+        readonly System.Diagnostics.Stopwatch stepTimer = new System.Diagnostics.Stopwatch();
+        double lastStepMilliseconds;
+        float frameMillisecondsAverage;
 
         void Awake()
         {
@@ -37,9 +43,11 @@ namespace Myong.Unity
 
         void StartRun(int seed)
         {
-            simulation = new Simulation(simulationTuning.TicksPerSecond, playerTuning.ToData());
+            EnemyRulesData enemyRules = enemyTable != null && spawnTable != null ? spawnTable.ToRules(enemyTable) : EnemyRulesData.None;
+            simulation = new Simulation(simulationTuning.TicksPerSecond, playerTuning.ToData(), enemyRules);
             world = simulation.CreateWorld(seed);
             accumulator = 0f;
+            if (enemyView != null) enemyView.Prepare(enemyRules.MaxAlive, enemyTable);
         }
 
         void Update()
@@ -48,6 +56,7 @@ namespace Myong.Unity
             int budget = simulationTuning.MaxTicksPerFrame;
             var frame = new InputFrame { Move = input != null ? input.ReadMove() : Vec2.Zero };
 
+            stepTimer.Restart();
             accumulator += Time.deltaTime;
             while (accumulator >= tick && budget > 0)
             {
@@ -57,17 +66,62 @@ namespace Myong.Unity
             }
             // 한 프레임에 낼 수 있는 틱을 다 쓰고도 시간이 남으면 버린다(멈추는 대신 느려진다).
             if (accumulator >= tick) accumulator = 0f;
+            stepTimer.Stop();
+            lastStepMilliseconds = stepTimer.Elapsed.TotalMilliseconds;
+            frameMillisecondsAverage += (Time.unscaledDeltaTime * 1000f - frameMillisecondsAverage) * DebugFrameAverageWeight;
 
-            if (playerView != null) playerView.Render(world.Player, accumulator / tick, playerTuning.MoveSpeed);
+            float alpha = accumulator / tick;
+            if (playerView != null) playerView.Render(world.Player, alpha, playerTuning.MoveSpeed);
+            if (enemyView != null) enemyView.Render(world.Enemies, world.EnemyCount, alpha);
         }
 
         // ---- 디버그 진입점 (에디터 디버그 창 Myong/Debug/Debug Window 가 부른다) ----
+
+        const float DebugFrameAverageWeight = 0.05f;
 
         public bool DebugIsRunning => world != null;
 
         public int DebugSeed => world.Seed;
 
         public long DebugTick => world.Tick;
+
+        public float DebugElapsedSeconds => simulation.ElapsedSeconds(world);
+
+        /// <summary>이번 프레임에 시뮬레이션(Step 여러 번)에 든 시간(ms).</summary>
+        public double DebugStepMilliseconds => lastStepMilliseconds;
+
+        /// <summary>프레임 시간(ms)의 이동 평균.</summary>
+        public float DebugFrameMilliseconds => frameMillisecondsAverage;
+
+        /// <summary>살아 있는 적 수.</summary>
+        public int DebugEnemyCount => world.EnemyCount;
+
+        public int DebugEnemyCapacity => world.Enemies.Length;
+
+        public long DebugEnemiesSpawnedTotal => world.EnemiesSpawnedTotal;
+
+        public bool DebugSpawningPaused => world.SpawningPaused;
+
+        /// <summary>적 하나의 상태(확인용, 복사본).</summary>
+        public EnemyState DebugEnemy(int index) => world.Enemies[index];
+
+        /// <summary>[상태 변경] 지금 적 count마리를 바로 스폰(최대 수까지). 스폰한 수를 돌려준다.</summary>
+        public int DebugSpawnEnemies(int count)
+        {
+            return simulation.SpawnEnemies(world, count);
+        }
+
+        /// <summary>[상태 변경] 적 모두 제거.</summary>
+        public void DebugClearEnemies()
+        {
+            simulation.ClearEnemies(world);
+        }
+
+        /// <summary>[상태 변경] 시간대 스폰 멈춤 / 재개.</summary>
+        public void DebugSetSpawningPaused(bool paused)
+        {
+            world.SpawningPaused = paused;
+        }
 
         public Vec2 DebugPlayerPosition => world.Player.Position;
 

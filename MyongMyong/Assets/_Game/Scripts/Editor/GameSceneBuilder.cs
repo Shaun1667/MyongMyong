@@ -26,6 +26,7 @@ namespace Myong.Editor
 
         const float CameraZ = -10f;
         const int GroundSortingOrder = -1000;
+        const int EnemySortingOrder = -1; // 플레이어(0) 뒤, 바닥 앞
         const int GroundTileDots = 64;
         const int GroundCellDots = 32;
         const int HudFontSize = 20;
@@ -101,6 +102,12 @@ namespace Myong.Editor
             if (material != null) groundRenderer.sharedMaterial = material;
             SetupUtil.SetReference(GetOrAdd<GroundGrid>(groundObject), "follow", cameraObject.transform);
 
+            // 적 렌더러 풀 (렌더러는 Play 때 GameRoot가 동시 최대 수만큼 미리 만든다)
+            var enemiesObject = FindOrCreate(scene, "Enemies");
+            var enemyPool = GetOrAdd<EnemyRenderPool>(enemiesObject);
+            SetupUtil.SetReference(enemyPool, "spriteMaterial", material);
+            SetupUtil.SetInt(enemyPool, "sortingOrder", EnemySortingOrder);
+
             // 컴포지션 루트 + 입력
             var rootObject = FindOrCreate(scene, "GameRoot");
             var input = GetOrAdd<PlayerInputReader>(rootObject);
@@ -113,6 +120,9 @@ namespace Myong.Editor
             SetupUtil.SetReference(gameRoot, "simulationTuning", AssetDatabase.LoadAssetAtPath<SimulationTuning>(DataSetup.SimulationTuningPath));
             SetupUtil.SetReference(gameRoot, "input", input);
             SetupUtil.SetReference(gameRoot, "playerView", playerView);
+            SetupUtil.SetReference(gameRoot, "enemyTable", AssetDatabase.LoadAssetAtPath<EnemyTable>(DataSetup.EnemyTablePath));
+            SetupUtil.SetReference(gameRoot, "spawnTable", AssetDatabase.LoadAssetAtPath<SpawnTable>(DataSetup.SpawnTablePath));
+            SetupUtil.SetReference(gameRoot, "enemyView", enemyPool);
 
             // HUD (텍스트 표 확인용 임시 라벨)
             var hud = FindOrCreate(scene, "HUD");

@@ -1,7 +1,7 @@
 # TASKS — MyongMyong (묭묭)
 
-## 진행 요약 (2026-11-24 기준 — 새 세션은 여기부터 읽는다)
-**최신 (2026-11-24): Phase 0(0-1 ~ 0-5) · G-1 주인공 리깅 · 1-1 WASD 8방향 이동 구현 — 모두 플레이 확인 대기. Game 씬 `Assets/_Game/Scenes/Game.unity`. 브랜치 `phase0-setup`(커밋 전), 테스트 21개 작성(실행 안 함 — 돌릴 때 됐다). 다음: 사용자 플레이 확인 · 테스트 실행 → 다음 항목 미정(후보를 먼저 묻는다: 적 스폰 · 자동 사격 · 가상 조이스틱).**
+## 진행 요약 (2026-11-25 기준 — 새 세션은 여기부터 읽는다)
+**최신 (2026-11-25): Phase 0(0-1 ~ 0-5) · G-1 주인공 리깅 · 1-1 WASD 8방향 이동 · 1-2 적 스폰 · 추적 구현 — 모두 플레이 확인 대기. Game 씬 `Assets/_Game/Scenes/Game.unity`. 브랜치 `phase0-setup`(커밋 전), 테스트 39개 작성(실행 안 함 — 돌릴 때 됐다). BALANCE.md 시작. 다음: 사용자 플레이 확인 · 테스트 실행 → 다음 항목 후보: 자동 사격(쏠 대상이 생김) · 가상 조이스틱.**
 
 ## Phase 0. 세팅
 - [x] **0-0. 문서 3종** (2026-11-24 사용자 "MY_DEV_GUIDE 대입") — CLAUDE.md · GDD.md · TASKS.md
@@ -54,6 +54,18 @@
   - 확인: Play에서 `GameRoot.DebugSetMoveInput`으로 8방향 각 59틱 → 모두 거리 4.425(= 4.5 × 59/60), 대각선 (3.129, 3.129) · 속도 크기 4.5 동일 · 표시 위치와 카메라가 정수 도트 · 입력을 풀면 Idle · 캡처 `Screenshots/03_run_right.png` · `04_run_left.png` · `05_run_diag_upright.png` · `06_run_diag_downleft.png`. 확인 못 함: 실제 키보드 · 패드 입력(에디터에 포커스가 없어 프레임을 일시정지 + Step으로 돌렸고, 그 상태에서는 Input System이 키 이벤트를 게임에 넘기지 않음 — Move 액션에 W/A/S/D · 방향키 · 패드 왼스틱이 묶여 있고 켜져 있는 것까지만 확인)
   - 테스트 작성, 실행 안 함: `MoveTests`(대각선 속도 = 직선 속도 · 8방향 같은 속도 · n틱 후 위치 · 스틱 절반 · 입력 없으면 정지 · 직전 위치 · 방향 · 순간이동 · 같은 입력 같은 결과 · 엔티티 ID)
   - 확인 방법: Game 씬 Play → W/A/S/D와 방향키로 상하좌우, 두 키를 같이 눌러 대각선 — 바닥 격자가 흘러가고 대각선이 더 빠르지 않으면 정상. 디버그 창 플레이어 섹션에서 위치 · 속도(|v| = 4.5) 확인
+
+- [x] **1-2. 적 스폰 · 추적** (2026-11-25 사용자 "묭묭도 다음 페이즈 진행해줘") — 플레이 확인 대기
+  - 정한 것 (감독, 확인 필요): 후보(적 스폰 · 자동 사격 · 가상 조이스틱) 중 적 스폰을 먼저 — 쏠 대상이 있어야 자동 사격을 확인할 수 있다
+  - 범위: 스폰 · 추적만. 피해 · 사격 · 경험치는 없음(적은 쌓이기만 하고 300마리에서 멈춘다)
+  - 구현: Core `Rng`(SplitMix64 시드 난수, 첫 사용처) · `RandomStream`(용도별 스트림, 지금 Spawn) · `Enemies.cs`(`EnemyKindData` · `SpawnPhaseData` · `EnemyRulesData` · `EnemyState` · 밀어내기 `EnemySeparation`) · `World`(SpawnRandom · Enemies 고정 배열 · EnemyCount · EnemiesSpawnedTotal · SpawnBudget · SpawningPaused) · `Simulation.Step` 순서 = 플레이어 이동 → 적 추적(직선) → 적끼리 밀어내기 → 스폰(플레이어 중심 반경 원 위, 각도는 스폰 스트림) · `SpawnEnemies` · `ClearEnemies` / Unity `EnemyTable` · `SpawnTable`(데이터 에셋 → `ToRules`로 Core 수치) · `EnemyRenderPool`(SpriteRenderer를 최대 수만큼 미리 만들어 재사용, 보간 + 도트 격자 맞춤) · `PlaceholderShapes`(그림이 없는 비주얼 ID → 코드가 만든 32도트 단색 원 + 테두리 + 눈) · `GameRoot`(연결 · Step 시간 재기 · DebugXxx) · Setup: `DataSetup`(에셋 2개 없을 때만) · `GameSceneBuilder`(Enemies 오브젝트 · 연결)
+  - 데이터: `Assets/_Game/Data/EnemyTable.asset`(basic: 1.8유닛/초 · 반지름 0.3 · 비주얼 enemy_basic · 밀어내기 0.5) · `SpawnTable.asset`(0초 1마리/초 · 60초 2 · 180초 4 · 300초 8, 반경 18, 최대 300) — 값과 이유는 BALANCE.md
+  - 정한 것 (Claude, 확인 필요): 적끼리 밀어내기 **넣음**(간단한 것: 해시 격자 4096칸 · 고정 배열, 겹친 거리의 절반씩 물러남, 같은 자리면 번호 순서로 좌우로 가름) — 빼면 수백 마리가 한 점에 겹쳐 수를 셀 수 없었다 / 적은 플레이어 발밑(위치)까지 와서 멈춤(피해가 없어 겹쳐 서 있음) / 새 적은 스폰한 틱에는 움직이지 않음 / 가득 차면 그 틱의 스폰 몫은 버림(나중에 몰아서 나오지 않게) / 빠진 자리는 맨 끝 적을 당겨 채움(순서는 바뀌지만 같은 시드면 같다), ID는 다시 쓰지 않음 / 디버그 스폰의 종류는 지금 시간대의 것 / 적 그리기 순서는 플레이어 뒤(sortingOrder -1) / 임시 색은 비주얼 ID 해시로 보라~노랑 사이(초록 바닥과 겹치지 않게, 지금 enemy_basic = 분홍)
+  - 디버그 창 적 섹션: 살아 있는 수 / 최대 · 스폰 누계 · 경과 시간 · 시간대 스폰 상태 · 프레임(평균) / 시뮬레이션 ms, [상태 변경] 지금 N마리 스폰(기본 200) · 모두 제거 · 스폰 멈춤/재개. 진입점 `GameRoot.DebugSpawnEnemies · DebugClearEnemies · DebugSetSpawningPaused`
+  - 확인: 컴파일 오류 0 · Play 30초(틱 1800)에 29마리(스폰 누계 29, 초당 1마리 그대로) · 캡처 `Screenshots/16_enemies_30s-1.png`(분홍, 지금 색) · `16_enemies_30s.png`(색 바꾸기 전 초록) / 디버그 진입점으로 200마리 스폰(240 ~ 252마리): 프레임 평균 약 9 ~ 11ms(에디터 Play, 포커스 없음), 시뮬레이션 0.19 ~ 0.43ms/프레임, 프로파일러 CPU 프레임 7.3 ~ 9.3ms 중 메인 스레드 약 1.1ms · 렌더 스레드 약 0.9ms · GPU 0.1 ~ 0.2ms, 렌더러 풀 300개 · 캡처 `17_enemies_200_spawned.png`(초록) · `17_enemies_200_spawned_v2.png`(분홍, 밀어내기로 둥글게 모임) / 같은 시드(20261125)로 두 번 재시작해 틱 480에서 멈춤 → 적 7마리의 ID · 위치가 소수 셋째 자리까지 모두 같음, 시드 7은 다름 · 디버그 스폰 위치가 반경 18.0 위 · 캡처 `18a_seed20261125_tick480_run1.png` · `18b_seed20261125_tick480_run2.png`(같은 그림). 확인 못 함: 실제 기기 · 빌드에서의 프레임, 적 300마리가 모두 화면에 있을 때의 모바일 성능, 디버그 창 버튼을 직접 누르는 것(진입점으로만 확인)
+  - 참고: 두 번째 Play에서는 에디터가 포커스 없이 멈춰(일시정지를 풀어도 프레임이 안 감) `EditorApplication.Step`으로 프레임을 진행했다 — 그 구간의 프레임 시간은 재지 않았다
+  - 테스트 작성, 실행 안 함: `EnemySpawnTests`(난수: 같은 시드 같은 수열 · 시드가 다르면 다름 · 범위 / 같은 시드 = 같은 스폰 · 다른 시드 = 다른 스폰 · 스폰 위치가 반경 위(시간대 · 디버그) · 시간대의 초당 마릿수 · 멈춤 · 최대 수를 넘지 않음 · ID를 다시 쓰지 않음 · 추적하면 틱마다 거리가 줄고 닿음 · 움직이는 플레이어도 따라감 · 밀어내기 · Step 중 할당 없음(`Is.Not.AllocatingGCMemory`, 300마리 · 120틱)) · `ProjectRulesTests`(EnemyTable 줄 검사 · SpawnTable이 있는 적만 가리키고 반경이 화면 밖)
+  - 확인 방법: Game 씬 Play → 화면 밖에서 분홍 원이 1초에 한 마리씩 나와 플레이어에게 곧장 다가오고, 플레이어 주변에 겹치지 않고 둥글게 모이면 정상. 디버그 창 적 섹션에서 수 · 누계가 늘고, "지금 스폰"(200)으로 한꺼번에 나와도 끊기지 않으면 정상. 판 · 시드 섹션 "재시작 (같은 시드)"를 두 번 하면 같은 자리에서 같은 순서로 나온다
 
 ## 다른 PC에서 할 일
 - Claude Hand 패키지(manifest.json)는 PC마다 `unity-install`로 넣는다.

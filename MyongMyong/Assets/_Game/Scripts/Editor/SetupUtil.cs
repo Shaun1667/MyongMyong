@@ -44,6 +44,20 @@ namespace Myong.Editor
             so.ApplyModifiedPropertiesWithoutUndo();
         }
 
+        public static void SetInt(Object target, string field, int value)
+        {
+            var so = new SerializedObject(target);
+            var property = so.FindProperty(field);
+            if (property == null)
+            {
+                Debug.LogError($"[Myong Setup] {target.GetType().Name} has no serialized field '{field}'");
+                return;
+            }
+            if (property.intValue == value) return;
+            property.intValue = value;
+            so.ApplyModifiedPropertiesWithoutUndo();
+        }
+
         [MenuItem("Myong/Setup/Run All", priority = 0)]
         public static void RunAll()
         {

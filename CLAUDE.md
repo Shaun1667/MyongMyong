@@ -2,7 +2,7 @@
 
 ## 프로젝트 개요
 2D 도트 탑다운 뱀서라이크. 자동으로 쏘는 총을 든 소녀가 몰려오는 적을 피하며 30분을 버틴다. 레벨업마다 무기 · 패시브를 골라 빌드를 만든다. 참고: 《Vampire Survivors》(구조만 참고, 그대로 베끼지 않음).
-기획은 GDD.md, 작업 순서와 일지는 TASKS.md, 수치는 BALANCE.md(첫 수치가 생기면 만든다). 작업 방식의 원본은 MY_DEV_GUIDE.md(= Docs/Source/MY_DEV_GUIDE.md, 고치지 않음).
+기획은 GDD.md, 작업 순서와 일지는 TASKS.md, 수치는 BALANCE.md. 작업 방식의 원본은 MY_DEV_GUIDE.md(= Docs/Source/MY_DEV_GUIDE.md, 고치지 않음).
 - **새 세션을 시작하면** 이 문서 → TASKS.md 맨 위 "진행 요약" 순서로 읽고 다음 항목을 확인한 뒤 시작한다. 다른 PC면 Docs/진행상황.md도. "다음 작업: 미정"이면 후보를 먼저 묻는다.
 - 수치는 BALANCE.md와 데이터 에셋 기준이며 코드에 임의로 넣지 않는다.
 - Unity 프로젝트 폴더는 `MyongMyong/` (저장소 루트의 한 단계 아래).
@@ -12,7 +12,7 @@
 |---|---|---|
 | GDD.md | 기획 | 초안 (2026-11-24) |
 | TASKS.md | 진행 요약 · 작업 순서 · 일지 | 사용 중 |
-| BALANCE.md | 수치 | 첫 수치 때 만든다 |
+| BALANCE.md | 수치 (기준은 데이터 에셋, 값 · 이유 기록) | 사용 중 (2026-11-25) |
 | MY_DEV_GUIDE.md | 협업 · 개발 방식 원본 | 고치지 않음 |
 | MyongMyong/ClaudeHand/NOTES.md | Claude Hand 하위 세션 메모 | 사용 중 |
 
@@ -73,6 +73,8 @@ MyongMyong/Assets/_Game/
 - 주인공 리그 · 애니메이션은 `PlayerRigBuilder`의 Bones · Clips 표가 기준 — 프리팹 · 클립 · 컨트롤러를 손으로 고치지 말고 표를 고친 뒤 메뉴 `Myong/Setup/Build Player Rig`. 새 뼈 · 새 프레임 = 표 한 줄.
 - 씬 · 에셋 구성은 Setup 메뉴(`Myong/Setup/Run All` = 2D 렌더 설정 → 데이터 에셋 → 아트 재임포트 → 리그 → Game 씬)로, 몇 번 돌려도 같은 결과. 수치 에셋은 없을 때만 만들고 값은 덮어쓰지 않는다.
 - `Myong.Editor` 네임스페이스 안에서는 `Editor`가 네임스페이스로 읽힌다 — 커스텀 인스펙터는 `UnityEditor.Editor`로 풀어 쓴다.
+- 난수는 `Myong.Core.Rng`(SplitMix64) 한 곳, 용도별 스트림 `RandomStream`(지금 Spawn)을 World가 든다(`World.SpawnRandom`). `System.Random` · `UnityEngine.Random`은 규칙 코드에 쓰지 않는다. 새 용도 = enum 한 줄(기존 값은 바꾸지 않는다).
+- 적은 Core `Simulation.Step`(추적 → 밀어내기 → 스폰) + `World.Enemies`(동시 최대 수 크기의 고정 배열, 빠지면 맨 끝 것을 당겨 채움, ID는 다시 쓰지 않음), 수치는 데이터 `Data/EnemyTable.asset`(종류: 속도 · 반지름 · 비주얼 ID) · `Data/SpawnTable.asset`(시간대별 초당 마릿수 · 스폰 반경 · 동시 최대 수), 그리기는 `EnemyRenderPool` 한 곳(SpriteRenderer를 최대 수만큼 미리 만들어 재사용, 그림이 없는 비주얼 ID는 `PlaceholderShapes` 단색 원). 새 적 = EnemyTable 한 줄, 새 시간대 = SpawnTable 한 줄.
 - (시스템이 생길 때마다 한 줄씩: "○○는 `클래스` 한 곳, 데이터 `에셋`, 새 항목 = 표 한 줄")
 
 ## 핵심 설계 규칙 (변경 금지)

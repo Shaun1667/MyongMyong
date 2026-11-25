@@ -1,0 +1,29 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 9a6d74ded7870f84d99f9904b5cadc51, type: 3}
+  m_Name: SpawnTable
+  m_EditorClassIdentifier: Myong.Unity::Myong.Unity.SpawnTable
+  phases:
+  - startSeconds: 0
+    spawnsPerSecond: 1
+    enemyId: basic
+  - startSeconds: 60
+    spawnsPerSecond: 2
+    enemyId: basic
+  - startSeconds: 180
+    spawnsPerSecond: 4
+    enemyId: basic
+  - startSeconds: 300
+    spawnsPerSecond: 8
+    enemyId: basic
+  spawnRadius: 18
+  maxAlive: 300

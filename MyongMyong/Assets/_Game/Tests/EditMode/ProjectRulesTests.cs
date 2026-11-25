@@ -26,6 +26,44 @@ namespace Myong.Tests
         }
 
         [Test]
+        public void EnemyTable_Exists_AndRowsAreValid()
+        {
+            var table = AssetDatabase.LoadAssetAtPath<EnemyTable>("Assets/_Game/Data/EnemyTable.asset");
+            Assert.IsNotNull(table);
+            Assert.IsNotEmpty(table.Rows);
+            var ids = new System.Collections.Generic.HashSet<string>();
+            foreach (var row in table.Rows)
+            {
+                Assert.IsFalse(string.IsNullOrEmpty(row.id), "enemy row without id");
+                Assert.IsTrue(ids.Add(row.id), "duplicate enemy id " + row.id);
+                Assert.Greater(row.moveSpeed, 0f, row.id);
+                Assert.Greater(row.radius, 0f, row.id);
+                Assert.IsFalse(string.IsNullOrEmpty(row.visualId), "no visual id: " + row.id);
+            }
+        }
+
+        [Test]
+        public void SpawnTable_Exists_RefersToKnownEnemies_AndSpawnsOffScreen()
+        {
+            var enemies = AssetDatabase.LoadAssetAtPath<EnemyTable>("Assets/_Game/Data/EnemyTable.asset");
+            var spawn = AssetDatabase.LoadAssetAtPath<SpawnTable>("Assets/_Game/Data/SpawnTable.asset");
+            Assert.IsNotNull(spawn);
+            Assert.IsNotEmpty(spawn.Phases);
+            Assert.Greater(spawn.MaxAlive, 0);
+            foreach (var phase in spawn.Phases) Assert.GreaterOrEqual(enemies.IndexOf(phase.enemyId), 0, "unknown enemy id " + phase.enemyId);
+
+            // 화면 대각선 절반 + 가장 큰 몸보다 멀어야 화면 밖에서 나타난다.
+            float halfWidth = PixelArt.ReferenceWidth / (2f * PixelArt.PixelsPerUnit);
+            float halfHeight = PixelArt.ReferenceHeight / (2f * PixelArt.PixelsPerUnit);
+            float maxRadius = 0f;
+            foreach (var row in enemies.Rows) maxRadius = System.Math.Max(maxRadius, row.radius);
+            Assert.Greater(spawn.SpawnRadius, (float)System.Math.Sqrt(halfWidth * halfWidth + halfHeight * halfHeight) + maxRadius);
+
+            var rules = spawn.ToRules(enemies);
+            Assert.AreEqual(spawn.Phases.Count, rules.Phases.Length);
+        }
+
+        [Test]
         public void SimulationTuning_Exists_AndIsValid()
         {
             var asset = AssetDatabase.LoadAssetAtPath<SimulationTuning>("Assets/_Game/Data/SimulationTuning.asset");

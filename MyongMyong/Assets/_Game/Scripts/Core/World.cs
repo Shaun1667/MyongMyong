@@ -25,6 +25,19 @@ namespace Myong.Core
         public int NextEntityId;
         public PlayerState Player;
 
+        /// <summary>스폰 전용 난수 스트림(RandomStream.Spawn).</summary>
+        public Rng SpawnRandom;
+
+        /// <summary>살아 있는 적. 앞에서 EnemyCount개만 쓴다(크기 = 동시 최대 수, 판 시작 때 한 번 만든다). 빠지면 맨 끝 것을 그 자리로 옮긴다.</summary>
+        public EnemyState[] Enemies = new EnemyState[0];
+        public int EnemyCount;
+        /// <summary>이 판에서 스폰한 적의 누계.</summary>
+        public long EnemiesSpawnedTotal;
+        /// <summary>쌓인 스폰 몫(1이 되면 한 마리).</summary>
+        public float SpawnBudget;
+        /// <summary>시간대 스폰을 멈췄는지(디버그).</summary>
+        public bool SpawningPaused;
+
         public int AllocateEntityId()
         {
             NextEntityId++;

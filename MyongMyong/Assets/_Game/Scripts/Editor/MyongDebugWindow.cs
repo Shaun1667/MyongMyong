@@ -27,6 +27,7 @@ namespace Myong.Editor
         Vector2 scroll;
         Vector2 teleportTarget;
         int seedInput;
+        int spawnCount = 200;
 
         [MenuItem("Myong/Debug/Debug Window")]
         public static void Open()
@@ -40,6 +41,7 @@ namespace Myong.Editor
             {
                 new Section { Title = "판 · 시드", Draw = DrawRun },
                 new Section { Title = "플레이어", Draw = DrawPlayer },
+                new Section { Title = "적", Draw = DrawEnemies },
                 new Section { Title = "텍스트", Draw = DrawText },
             };
         }
@@ -117,6 +119,24 @@ namespace Myong.Editor
             }
 
             if (GUILayout.Button("피격 애니메이션 보기")) root.DebugPlayHit();
+        }
+
+        void DrawEnemies(GameRoot root)
+        {
+            EditorGUILayout.LabelField("살아 있는 수", $"{root.DebugEnemyCount} / {root.DebugEnemyCapacity}");
+            EditorGUILayout.LabelField("스폰 누계", root.DebugEnemiesSpawnedTotal.ToString());
+            EditorGUILayout.LabelField("경과 시간", $"{root.DebugElapsedSeconds:0.0}초");
+            EditorGUILayout.LabelField("시간대 스폰", root.DebugSpawningPaused ? "멈춤" : "돌아감");
+            EditorGUILayout.LabelField("프레임 / 시뮬레이션", $"{root.DebugFrameMilliseconds:0.00} ms (평균) / {root.DebugStepMilliseconds:0.000} ms");
+
+            using (new EditorGUILayout.HorizontalScope())
+            {
+                spawnCount = Mathf.Max(1, EditorGUILayout.IntField("마릿수", spawnCount));
+                if (GUILayout.Button(StateChange + "지금 스폰")) root.DebugSpawnEnemies(spawnCount);
+            }
+            if (GUILayout.Button(StateChange + "모두 제거")) root.DebugClearEnemies();
+            bool paused = root.DebugSpawningPaused;
+            if (GUILayout.Button(StateChange + (paused ? "스폰 재개" : "스폰 멈춤"))) root.DebugSetSpawningPaused(!paused);
         }
 
         void DrawText(GameRoot root)
