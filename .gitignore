@@ -140,3 +140,4 @@ crashlytics-build.properties
 
 # 캡처 (Claude 확인용)
 /MyongMyong/Screenshots/
+/MyongMyong/[Rr]ecordings/
