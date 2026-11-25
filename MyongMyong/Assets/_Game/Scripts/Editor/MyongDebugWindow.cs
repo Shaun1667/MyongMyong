@@ -30,6 +30,9 @@ namespace Myong.Editor
         int spawnCount = 200;
         int experienceAmount = 5;
         float damageAmount = 10f;
+        float skipBeforeGoalSeconds = 10f;
+        int skipMinutes = 29;
+        int skipSeconds = 50;
 
         [MenuItem("Myong/Debug/Debug Window")]
         public static void Open()
@@ -42,6 +45,7 @@ namespace Myong.Editor
             sections = new List<Section>
             {
                 new Section { Title = "판 · 시드", Draw = DrawRun },
+                new Section { Title = "판 시간 · 승리", Draw = DrawRunTime },
                 new Section { Title = "플레이어", Draw = DrawPlayer },
                 new Section { Title = "가상 조이스틱", Draw = DrawJoystick },
                 new Section { Title = "적", Draw = DrawEnemies },
@@ -100,6 +104,35 @@ namespace Myong.Editor
             {
                 seedInput = EditorGUILayout.IntField("새 시드", seedInput);
                 if (GUILayout.Button(StateChange + "이 시드로 재시작")) root.DebugRestartWithSeed(seedInput);
+            }
+        }
+
+        void DrawRunTime(GameRoot root)
+        {
+            float goal = root.DebugSurvivalSeconds;
+            long ticks = root.DebugRunTicks;
+            EditorGUILayout.LabelField("판 시간", $"{ticks}틱 ({root.DebugElapsedSeconds:0.00}초) · HUD '{root.DebugTimerText}'");
+            EditorGUILayout.LabelField("생존 목표", goal > 0f ? $"{goal:0}초 ({(int)goal / 60:00}:{(int)goal % 60:00}) · 남은 {Mathf.Max(0f, goal - root.DebugSurvivedSeconds):0.0}초" : "없음 (RunTuning이 없거나 0)");
+            EditorGUILayout.LabelField("레벨업 선택 중", root.DebugPendingLevelUps > 0 ? "예 (타이머 멈춤)" : "아니오");
+            if (root.DebugIsOver) EditorGUILayout.LabelField("판 끝 창", $"'{root.DebugGameOverTitle}' · '{root.DebugGameOverTime}'");
+
+            using (new EditorGUI.DisabledScope(root.DebugIsOver || goal <= 0f))
+            {
+                using (new EditorGUILayout.HorizontalScope())
+                {
+                    skipBeforeGoalSeconds = Mathf.Max(0f, EditorGUILayout.FloatField("목표 몇 초 전", skipBeforeGoalSeconds));
+                    if (GUILayout.Button(StateChange + "목표 전으로 건너뛰기")) root.DebugSkipToBeforeGoal(skipBeforeGoalSeconds);
+                }
+            }
+            using (new EditorGUI.DisabledScope(root.DebugIsOver))
+            {
+                using (new EditorGUILayout.HorizontalScope())
+                {
+                    skipMinutes = Mathf.Max(0, EditorGUILayout.IntField("분", skipMinutes));
+                    skipSeconds = Mathf.Clamp(EditorGUILayout.IntField("초", skipSeconds), 0, 59);
+                    if (GUILayout.Button(StateChange + $"{skipMinutes:00}:{skipSeconds:00}로 건너뛰기 (앞으로만)")) root.DebugSkipToSeconds(skipMinutes * 60f + skipSeconds);
+                }
+                if (GUILayout.Button(StateChange + "바로 승리")) root.DebugVictoryNow();
             }
         }
 

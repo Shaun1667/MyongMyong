@@ -19,6 +19,10 @@ namespace Myong.Editor
         public const string ExperienceTablePath = Folder + "/ExperienceTable.asset";
         public const string UpgradeTablePath = Folder + "/UpgradeTable.asset";
         public const string JoystickTuningPath = Folder + "/JoystickTuning.asset";
+        public const string RunTuningPath = Folder + "/RunTuning.asset";
+
+        // 판 길이 첫 값 (BALANCE.md와 같은 값. 기준은 에셋) — GDD 4번 승리: 30분 생존
+        const float InitialSurvivalSeconds = 1800f;
 
         // 가상 조이스틱 첫 값 (BALANCE.md와 같은 값. 기준은 에셋. 거리는 HUD 단위 = 기준 해상도 도트)
         const float InitialJoystickRadius = 72f;
@@ -226,6 +230,15 @@ if (AssetDatabase.LoadAssetAtPath<WeaponTable>(WeaponTablePath) == null)
                 so.FindProperty("touchAreaWidth").floatValue = InitialJoystickTouchAreaWidth;
                 so.ApplyModifiedPropertiesWithoutUndo();
                 AssetDatabase.CreateAsset(asset, JoystickTuningPath);
+            }
+
+            if (AssetDatabase.LoadAssetAtPath<RunTuning>(RunTuningPath) == null)
+            {
+                var asset = ScriptableObject.CreateInstance<RunTuning>();
+                var so = new SerializedObject(asset);
+                so.FindProperty("survivalSeconds").floatValue = InitialSurvivalSeconds;
+                so.ApplyModifiedPropertiesWithoutUndo();
+                AssetDatabase.CreateAsset(asset, RunTuningPath);
             }
 
             AssetDatabase.SaveAssets();

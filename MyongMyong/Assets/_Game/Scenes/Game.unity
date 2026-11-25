@@ -1963,6 +1963,115 @@ CanvasRenderer:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 851729528}
   m_CullTransparentMesh: 1
+--- !u!1 &873877982
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 873877983}
+  - component: {fileID: 873877987}
+  - component: {fileID: 873877986}
+  - component: {fileID: 873877985}
+  - component: {fileID: 873877984}
+  m_Layer: 0
+  m_Name: TimerLabel
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!224 &873877983
+RectTransform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 873877982}
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 1481378130}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+  m_AnchorMin: {x: 0.5, y: 1}
+  m_AnchorMax: {x: 0.5, y: 1}
+  m_AnchoredPosition: {x: 0, y: -14}
+  m_SizeDelta: {x: 160, y: 35.2}
+  m_Pivot: {x: 0.5, y: 1}
+--- !u!114 &873877984
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 873877982}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 2c39fd410abaafc49a6ff522125fe7cb, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Myong.Unity::Myong.Unity.RunTimerHud
+  timerLabel: {fileID: 873877986}
+--- !u!114 &873877985
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 873877982}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: cfabb0440166ab443bba8876756fdfa9, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: UnityEngine.UI::UnityEngine.UI.Shadow
+  m_EffectColor: {r: 0, g: 0, b: 0, a: 1}
+  m_EffectDistance: {x: 1, y: -1}
+  m_UseGraphicAlpha: 1
+--- !u!114 &873877986
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 873877982}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 5f7201a12d95ffc409449d95f23cf332, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: UnityEngine.UI::UnityEngine.UI.Text
+  m_Material: {fileID: 0}
+  m_Color: {r: 1, g: 1, b: 1, a: 1}
+  m_RaycastTarget: 0
+  m_RaycastPadding: {x: 0, y: 0, z: 0, w: 0}
+  m_Maskable: 1
+  m_OnCullStateChanged:
+    m_PersistentCalls:
+      m_Calls: []
+  m_FontData:
+    m_Font: {fileID: 10102, guid: 0000000000000000e000000000000000, type: 0}
+    m_FontSize: 22
+    m_FontStyle: 0
+    m_BestFit: 0
+    m_MinSize: 10
+    m_MaxSize: 40
+    m_Alignment: 1
+    m_AlignByGeometry: 0
+    m_RichText: 1
+    m_HorizontalOverflow: 0
+    m_VerticalOverflow: 1
+    m_LineSpacing: 1
+  m_Text: 
+--- !u!222 &873877987
+CanvasRenderer:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 873877982}
+  m_CullTransparentMesh: 1
 --- !u!1 &898431471
 GameObject:
   m_ObjectHideFlags: 0
@@ -2878,6 +2987,7 @@ RectTransform:
   - {fileID: 1613984627}
   - {fileID: 1861304365}
   - {fileID: 1468207780}
+  - {fileID: 873877983}
   - {fileID: 1541180358}
   - {fileID: 1999808049}
   m_Father: {fileID: 0}
@@ -3123,6 +3233,7 @@ MonoBehaviour:
   weaponTable: {fileID: 11400000, guid: 4b6208542bdf2e14ca7bfec466325e8e, type: 2}
   experienceTable: {fileID: 11400000, guid: b29ad47d90267144387689f59ce224b3, type: 2}
   upgradeTable: {fileID: 11400000, guid: 692884bc72eb9cf40af14adf66584b6b, type: 2}
+  runTuning: {fileID: 11400000, guid: 05475fcc2969d294cb314eee289f4872, type: 2}
   input: {fileID: 1587400898}
   joystick: {fileID: 1565873904}
   playerView: {fileID: 1060889465}
@@ -3133,6 +3244,7 @@ MonoBehaviour:
   levelUpView: {fileID: 1541180359}
   healthBar: {fileID: 1423382311}
   gameOverView: {fileID: 1999808050}
+  timerHud: {fileID: 873877984}
   useFixedSeed: 0
   fixedSeed: 0
 --- !u!114 &1587400898
@@ -4253,6 +4365,7 @@ MonoBehaviour:
   hint: {fileID: 983154397}
   restartButton: {fileID: 769738497}
   restartLabel: {fileID: 1788306362}
+  victoryTitleColor: {r: 1, g: 0.86, b: 0.4, a: 1}
 --- !u!1 &2093807876
 GameObject:
   m_ObjectHideFlags: 0

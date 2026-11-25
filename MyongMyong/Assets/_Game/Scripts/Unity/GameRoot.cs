@@ -20,6 +20,7 @@ namespace Myong.Unity
         [SerializeField] WeaponTable weaponTable;
         [SerializeField] ExperienceTable experienceTable;
         [SerializeField] UpgradeTable upgradeTable;
+        [SerializeField] RunTuning runTuning;
 
         [Header("Scene")]
         [SerializeField] PlayerInputReader input;
@@ -32,6 +33,7 @@ namespace Myong.Unity
         [SerializeField] LevelUpView levelUpView;
         [SerializeField] PlayerHealthBar healthBar;
         [SerializeField] GameOverView gameOverView;
+        [SerializeField] RunTimerHud timerHud;
 
         [Header("Seed")]
         [Tooltip("Off: a new seed every run. On: always Fixed Seed.")]
@@ -63,7 +65,8 @@ namespace Myong.Unity
             WeaponRulesData weaponRules = weaponTable != null ? weaponTable.ToRules() : WeaponRulesData.None;
             ExperienceRulesData experienceRules = experienceTable != null ? experienceTable.ToRules() : ExperienceRulesData.None;
             UpgradeRulesData upgradeRules = upgradeTable != null ? upgradeTable.ToRules(weaponTable) : UpgradeRulesData.None;
-            simulation = new Simulation(simulationTuning.TicksPerSecond, playerTuning.ToData(), enemyRules, weaponRules, experienceRules, upgradeRules);
+            RunRulesData runRules = runTuning != null ? runTuning.ToRules() : RunRulesData.None;
+            simulation = new Simulation(simulationTuning.TicksPerSecond, playerTuning.ToData(), enemyRules, weaponRules, experienceRules, upgradeRules, runRules);
             world = simulation.CreateWorld(seed);
             accumulator = 0f;
             if (enemyView != null) enemyView.Prepare(enemyRules.MaxAlive, enemyTable);
@@ -132,6 +135,7 @@ namespace Myong.Unity
             if (gemView != null) gemView.Render(world.Gems, world.GemCount, alpha);
             if (experienceHud != null) experienceHud.Render(world.Level, world.Experience, simulation.ExperienceToNext(world.Level));
             if (levelUpView != null) levelUpView.Render(world.PendingLevelUps, world.LevelUpChoices, world.LevelUpChoiceCount, world.UpgradeStages, upgradeTable);
+            if (timerHud != null) timerHud.Render(simulation.RunTicks(world), simulation.TicksPerSecond);
             if (gameOverView != null) gameOverView.Render(world.Result, simulation.SurvivedSeconds(world));
         }
 
@@ -369,6 +373,41 @@ namespace Myong.Unity
         public void DebugDamagePlayer(float amount)
         {
             simulation.DamagePlayer(world, amount);
+        }
+
+        // ---- 판 시간 · 승리 ----
+
+        /// <summary>생존 목표(초, RunTuning). 0 = 시간 승리 없음.</summary>
+        public float DebugSurvivalSeconds => simulation.SurvivalSeconds;
+
+        /// <summary>판 시간(틱, 끝났으면 끝난 틱).</summary>
+        public long DebugRunTicks => simulation.RunTicks(world);
+
+        /// <summary>HUD 타이머에 지금 보이는 글 · 판 끝 창의 제목 · 시간 글(표시 확인용).</summary>
+        public string DebugTimerText => timerHud != null ? timerHud.Shown : string.Empty;
+
+        public string DebugGameOverTitle => gameOverView != null ? gameOverView.ShownTitle : string.Empty;
+
+        public string DebugGameOverTime => gameOverView != null ? gameOverView.ShownTime : string.Empty;
+
+        /// <summary>[상태 변경] 판 시간을 seconds로 건너뛴다(앞으로만, 틱 수만 바뀜). 건너뛰었으면 true.</summary>
+        public bool DebugSkipToSeconds(float seconds)
+        {
+            accumulator = 0f;
+            return simulation.SkipTo(world, seconds);
+        }
+
+        /// <summary>[상태 변경] 생존 목표 secondsBefore초 전으로 건너뛴다(예: 30분 목표에 10초 = 29:50). 목표가 없으면 false.</summary>
+        public bool DebugSkipToBeforeGoal(float secondsBefore)
+        {
+            if (simulation.SurvivalTicks <= 0) return false;
+            return DebugSkipToSeconds(Math.Max(0f, simulation.SurvivalSeconds - secondsBefore));
+        }
+
+        /// <summary>[상태 변경] 바로 승리(시간을 건너뛰지 않고 지금 틱으로 판 끝 — 창 모양 확인용).</summary>
+        public void DebugVictoryNow()
+        {
+            simulation.EndRun(world, RunOutcome.Victory);
         }
 
         /// <summary>[상태 변경] 바로 게임 오버(패배로 판 끝).</summary>

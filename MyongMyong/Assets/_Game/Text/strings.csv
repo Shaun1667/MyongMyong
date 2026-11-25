@@ -4,6 +4,7 @@ ui.debug.hello,묭묭 준비 완료!,MyongMyong is ready!
 ui.debug.position,"위치 {0}, {1}","Position {0}, {1}"
 # HUD
 ui.hud.level,Lv {0},Lv {0}
+ui.hud.timer,{0}:{1},{0}:{1}
 # 레벨업 창
 ui.levelup.title,레벨 업!,Level Up!
 ui.levelup.hint,"1 · 2 · 3 키, 클릭, 패드로 하나를 고르세요","Pick one: keys 1 · 2 · 3, click, or gamepad"

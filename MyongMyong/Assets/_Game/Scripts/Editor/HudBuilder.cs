@@ -134,6 +134,23 @@ namespace Myong.Editor
             return (hud, view);
         }
 
+        const int TimerFontSize = 22;
+        const float TimerWidth = 160f;
+
+        /// <summary>판 시간 mm:ss(화면 위 가운데, 경험치 바 바로 아래). 레벨업 · 판 끝 창보다 아래에 그려지도록 Build 다음, BuildGameOver 전에 부르고 레벨업 창 앞 형제로 둔다.</summary>
+        public static RunTimerHud BuildTimer(GameObject hudRoot)
+        {
+            var timer = Child(hudRoot.transform, "TimerLabel");
+            Place(timer, new Vector2(0.5f, 1f), new Vector2(0.5f, 1f), new Vector2(0.5f, 1f), new Vector2(0f, -(BarHeight + 4f)), new Vector2(TimerWidth, TimerFontSize * 1.6f));
+            var timerText = Label(timer.gameObject, TimerFontSize, TextAnchor.UpperCenter, Color.white);
+            var levelUp = hudRoot.transform.Find("LevelUp");
+            // 레벨업 창보다 뒤에 있을 때만 앞으로 옮긴다(이미 앞이면 그대로 — 다시 돌려도 같은 순서).
+            if (levelUp != null && timer.GetSiblingIndex() > levelUp.GetSiblingIndex()) timer.SetSiblingIndex(levelUp.GetSiblingIndex());
+            var hud = GetOrAdd<RunTimerHud>(timer.gameObject);
+            SetupUtil.SetReference(hud, "timerLabel", timerText);
+            return hud;
+        }
+
         const float ResultWidth = 420f;
         const float ResultLineHeight = 30f;
         const int ResultFontSize = 20;

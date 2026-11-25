@@ -20,6 +20,10 @@ namespace Myong.Unity
         [SerializeField] UnityEngine.UI.Text hint;
         [SerializeField] UnityEngine.UI.Button restartButton;
         [SerializeField] UnityEngine.UI.Text restartLabel;
+        [Tooltip("Title color when the run is won (display only). Defeat keeps the label's own color.")]
+        [SerializeField] Color victoryTitleColor = new Color(1f, 0.86f, 0.4f, 1f);
+
+        Color defeatTitleColor;
 
         /// <summary>[다시 시작]을 눌렀다.</summary>
         public event Action RestartPressed;
@@ -31,9 +35,15 @@ namespace Myong.Unity
         /// <summary>[다시 시작] 버튼(확인용 · 디버그가 같은 길로 누른다).</summary>
         public UnityEngine.UI.Button RestartButton => restartButton;
 
+        /// <summary>지금 보이는 제목 · 시간 글(확인용).</summary>
+        public string ShownTitle => title != null ? title.text : string.Empty;
+
+        public string ShownTime => time != null ? time.text : string.Empty;
+
         void Awake()
         {
             if (restartButton != null) restartButton.onClick.AddListener(() => RestartPressed?.Invoke());
+            if (title != null) defeatTitleColor = title.color;
             if (panel != null) panel.SetActive(false);
         }
 
@@ -80,7 +90,11 @@ namespace Myong.Unity
             if (!opening && !textDirty) return;
 
             int total = Mathf.Max(0, Mathf.FloorToInt(survivedSeconds));
-            if (title != null) title.text = Text.Get(TitleKey(result.Outcome));
+            if (title != null)
+            {
+                title.text = Text.Get(TitleKey(result.Outcome));
+                title.color = result.Outcome == RunOutcome.Victory ? victoryTitleColor : defeatTitleColor;
+            }
             if (time != null) time.text = Text.Get("ui.gameover.time", (total / 60).ToString("00"), (total % 60).ToString("00"));
             if (level != null) level.text = Text.Get("ui.gameover.level", result.Level);
             if (kills != null) kills.text = Text.Get("ui.gameover.kills", result.EnemiesKilled);

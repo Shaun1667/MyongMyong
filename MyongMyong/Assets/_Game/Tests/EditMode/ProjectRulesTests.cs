@@ -172,6 +172,24 @@ namespace Myong.Tests
         }
 
         [Test]
+        public void RunTuning_Exists_SurvivalIsPositive_AndSpawnTableCoversTheWholeRun()
+        {
+            var run = AssetDatabase.LoadAssetAtPath<RunTuning>("Assets/_Game/Data/RunTuning.asset");
+            Assert.IsNotNull(run);
+            Assert.Greater(run.SurvivalSeconds, 0f, "no time victory");
+            Assert.AreEqual(run.SurvivalSeconds, run.ToRules().SurvivalSeconds);
+
+            // 스폰 표는 0초부터 시작하고, 마지막 시간대는 생존 목표 전에 시작해 목표까지 이어진다(다음 시간대가 없으면 끝까지 유지).
+            var enemies = AssetDatabase.LoadAssetAtPath<EnemyTable>("Assets/_Game/Data/EnemyTable.asset");
+            var spawn = AssetDatabase.LoadAssetAtPath<SpawnTable>("Assets/_Game/Data/SpawnTable.asset");
+            var rules = spawn.ToRules(enemies);
+            Assert.AreEqual(0, rules.PhaseAt(0f), "no spawn phase at 0 s");
+            Assert.Less(rules.Phases[rules.Phases.Length - 1].StartSeconds, run.SurvivalSeconds, "a spawn phase starts after the run is won");
+            Assert.AreEqual(rules.Phases.Length - 1, rules.PhaseAt(run.SurvivalSeconds - 1f), "last phase holds until the goal");
+            Assert.Greater(rules.Phases[rules.PhaseAt(run.SurvivalSeconds - 1f)].SpawnsPerSecond, 0f, "nothing spawns at the end of the run");
+        }
+
+        [Test]
         public void SimulationTuning_Exists_AndIsValid()
         {
             var asset = AssetDatabase.LoadAssetAtPath<SimulationTuning>("Assets/_Game/Data/SimulationTuning.asset");

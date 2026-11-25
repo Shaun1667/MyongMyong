@@ -56,6 +56,7 @@ namespace Myong.Core
         readonly WeaponRules weaponRules;
         readonly ProgressionRules progression;
         readonly HealthRules health;
+        readonly long survivalTicks;
 
         public Simulation(int ticksPerSecond, PlayerTuningData player)
             : this(ticksPerSecond, player, EnemyRulesData.None, WeaponRulesData.None)
@@ -73,6 +74,11 @@ namespace Myong.Core
         }
 
         public Simulation(int ticksPerSecond, PlayerTuningData player, EnemyRulesData enemies, WeaponRulesData weapons, ExperienceRulesData experience, UpgradeRulesData upgrades)
+            : this(ticksPerSecond, player, enemies, weapons, experience, upgrades, RunRulesData.None)
+        {
+        }
+
+        public Simulation(int ticksPerSecond, PlayerTuningData player, EnemyRulesData enemies, WeaponRulesData weapons, ExperienceRulesData experience, UpgradeRulesData upgrades, RunRulesData run)
         {
             if (ticksPerSecond <= 0) throw new ArgumentOutOfRangeException(nameof(ticksPerSecond));
             TicksPerSecond = ticksPerSecond;
@@ -91,6 +97,7 @@ namespace Myong.Core
             weaponRules = new WeaponRules(weapons, upgrades, enemies, enemyGrid, ticksPerSecond);
             progression = new ProgressionRules(experience, upgrades, enemies, player, ticksPerSecond);
             health = new HealthRules(enemies, player, ticksPerSecond);
+            survivalTicks = RunClock.TicksOf(run.SurvivalSeconds, ticksPerSecond);
         }
 
         public int TicksPerSecond { get; }
@@ -155,9 +162,19 @@ namespace Myong.Core
         /// <summary>판이 끝날 때까지 버틴 시간(초). 진행 중이면 지금까지.</summary>
         public float SurvivedSeconds(World world) => (world.IsOver ? world.Result.Ticks : world.Tick) * TickSeconds;
 
+        /// <summary>판 시간(틱): 진행 중이면 지금 틱, 끝났으면 끝난 틱. HUD 타이머가 읽는다(레벨업 선택 중에는 틱이 멈추므로 타이머도 멈춘다).</summary>
+        public long RunTicks(World world) => world.IsOver ? world.Result.Ticks : world.Tick;
+
+        /// <summary>생존 목표(틱). 이 틱에 닿으면 승리. 0 = 시간 승리 없음.</summary>
+        public long SurvivalTicks => survivalTicks;
+
+        /// <summary>생존 목표(초). 0 = 시간 승리 없음.</summary>
+        public float SurvivalSeconds => survivalTicks * TickSeconds;
+
         /// <summary>
         /// 순서: 플레이어 이동 → 적 추적 → 적끼리 밀어내기 → 적 접촉 피해(체력 0이면 그 틱에서 판 끝) → 발사(사거리 안 가장 가까운 적) → 탄 이동 · 맞기
-        /// → 젬 끌기 · 줍기(경험치 · 레벨) → 죽은 적 자리에 젬 떨어뜨리기 → 죽은 적 빼기 → 스폰(새 적 · 새 젬은 그 틱에는 움직이지 않는다).
+        /// → 젬 끌기 · 줍기(경험치 · 레벨) → 죽은 적 자리에 젬 떨어뜨리기 → 죽은 적 빼기 → 스폰(새 적 · 새 젬은 그 틱에는 움직이지 않는다)
+        /// → 틱 + 1 → 생존 목표 틱에 닿았으면 승리(같은 틱에 체력 0이면 패배가 먼저).
         /// 레벨업 선택을 기다리는 동안(PendingLevelUps > 0)과 판이 끝난 뒤(IsOver)에는 아무것도 하지 않는다 — 틱도 멈춘다.
         /// </summary>
         public void Step(World world, in InputFrame input)
@@ -179,6 +196,7 @@ namespace Myong.Core
             WeaponRules.RemoveDeadEnemies(world);
             StepSpawning(world);
             world.Tick++;
+            if (survivalTicks > 0 && world.Tick >= survivalTicks) HealthRules.EndRun(world, RunOutcome.Victory);
         }
 
         void StepPlayer(World world, in InputFrame input)
@@ -301,7 +319,19 @@ namespace Myong.Core
 
         // ---- 체력 · 판 끝 ----
 
-        /// <summary>판을 끝낸다(디버그 · 나중의 30분 승리). 결과 값을 남기고, 그 뒤 Step은 아무것도 하지 않는다.</summary>
+        /// <summary>
+        /// 판 시간을 seconds(초, 틱으로 반올림)로 건너뛴다(디버그). 앞으로만 — 지금보다 이르거나 같으면, 또는 판이 끝났으면 false.
+        /// 틱 수만 바꾼다(적 · 탄 · 젬 · 체력은 그대로, 시간대 스폰은 그 시간의 것). 생존 목표 이상으로 건너뛰면 다음 Step에서 승리.
+        /// </summary>
+        public bool SkipTo(World world, float seconds)
+        {
+            long target = RunClock.TicksOf(seconds, TicksPerSecond);
+            if (world.IsOver || target <= world.Tick) return false;
+            world.Tick = target;
+            return true;
+        }
+
+        /// <summary>판을 끝낸다(디버그 · 30분 승리도 같은 길). 결과 값을 남기고, 그 뒤 Step은 아무것도 하지 않는다.</summary>
         public void EndRun(World world, RunOutcome outcome)
         {
             HealthRules.EndRun(world, outcome);

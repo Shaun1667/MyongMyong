@@ -1,7 +1,7 @@
 # TASKS — MyongMyong (묭묭)
 
 ## 진행 요약 (2026-11-25 기준 — 새 세션은 여기부터 읽는다)
-**최신 (2026-11-25): Phase 0(0-1 ~ 0-5) · G-1 주인공 리깅 · 1-1 WASD 8방향 이동 · 1-2 적 스폰 · 추적 · 1-3 자동 사격 · 1-4 경험치 · 레벨업 · 1-5 접촉 피해 · 체력 · 게임 오버 · 1-6 가상 조이스틱 구현 — 모두 플레이 확인 대기. Game 씬 `Assets/_Game/Scenes/Game.unity`. 브랜치 `phase1-enemy`. 테스트 EditMode 106개(1-6에서 13개 추가) — 2026-11-25 실행: 106개 모두 통과. 스폰 첫 시간대 1.5마리/초는 사용자 확정(2026-11-25). 다음: 사용자 플레이 확인 · 1-7 30분 생존 승리 · 타이머 HUD → 다음 항목 후보: 무기 추가(새 무기를 레벨업 선택지로) / 30분 생존 승리 · 타이머 HUD.**
+**최신 (2026-11-25): Phase 0(0-1 ~ 0-5) · G-1 주인공 리깅 · 1-1 WASD 8방향 이동 · 1-2 적 스폰 · 추적 · 1-3 자동 사격 · 1-4 경험치 · 레벨업 · 1-5 접촉 피해 · 체력 · 게임 오버 · 1-6 가상 조이스틱 · 1-7 30분 생존 승리 · 타이머 HUD 구현 — 모두 플레이 확인 대기. Game 씬 `Assets/_Game/Scenes/Game.unity`. 브랜치 `phase1-enemy`. 테스트 EditMode 106개(1-6에서 13개 추가) — 2026-11-25 실행: 106개 모두 통과. 스폰 첫 시간대 1.5마리/초는 사용자 확정(2026-11-25). EditMode 128개 모두 통과. 다음: 사용자 플레이 확인 → 다음 항목 후보: 무기 추가(새 무기를 레벨업 선택지로) / 30분 생존 승리 · 타이머 HUD.**
 
 ## Phase 0. 세팅
 - [x] **0-0. 문서 3종** (2026-11-24 사용자 "MY_DEV_GUIDE 대입") — CLAUDE.md · GDD.md · TASKS.md
@@ -119,6 +119,16 @@
   - 확인 못 함: 실제 터치 · 마우스 끌기 · 창이 떠 있을 때 실제로 막히는 것(테스트로만) · 모바일에서 크기 · 손맛
   - 테스트 작성 · 실행(2026-11-25, EditMode 전체 106개): 모두 통과. 새 테스트 `JoystickTests`(13: 데드존 · 8방향 맞춤 · 세기 · 곧은 방향의 다른 축 0 · 아날로그 · 손잡이 반경 · 대각선 = W+D · 방향 유지 · 누르기 · 끌기 · 떼기 · 두 번째 손가락 무시 · 막기 · 풀린 뒤 새로 눌러야 함 · 막히면 이동 0 · `<Gamepad>/leftStick` = Player/Move 바인딩 · JoystickTuning 값)
   - 확인 방법: Game 씬 Play → Game 뷰를 마우스로 누르면 그 자리에 흰 고리와 원이 나타나고, 끌면 원이 따라가며 캐릭터가 8방향 중 가까운 쪽으로 WASD와 같은 속도로 걷고, 떼면 사라지고 멈추면 정상. 레벨업 카드나 게임 오버 창이 떠 있을 때 누르면 조이스틱이 안 나오고, 창이 닫힌 뒤 다시 눌러야 움직이면 정상. 디버그 창 가상 조이스틱 섹션에서 Move 액션 값이 (1, 0) 등으로 바뀌는지 본다
+- [x] **1-7. 30분 생존 승리 · 타이머 HUD** (2026-11-25 사용자 "세 프로젝트 다음 진행사항들 진행해줘" — 다음 항목 후보 중 감독이 고름) — 플레이 확인 대기
+  - 범위: 판 시간 타이머(시뮬레이션 틱, 레벨업 · 판 끝이면 멈춤) · HUD mm:ss · 생존 목표에 닿으면 승리(기존 RunOutcome.Victory / Simulation.EndRun / GameOverView) · 디버그 시간 건너뛰기. 30분 보스 · 사신 · 마무리 연출 · 기록은 없음
+  - 구현: Core `Run.cs`(`RunRulesData` · `RunClock`) · `Simulation`(7인자 생성자 · Step 끝 승리 판정 · RunTicks · SurvivalTicks · SkipTo) / Unity `RunTuning` · `RunTimerHud` · `GameOverView`(승리 제목 색) · `GameRoot`(연결 · DebugXxx) / Setup `DataSetup`(RunTuning) · `HudBuilder.BuildTimer` · `GameSceneBuilder`. 글 `ui.hud.timer`(감독이 strings.csv에 넣음)
+  - 데이터: `Assets/_Game/Data/RunTuning.asset` 생존 목표 1800초 — BALANCE 판 길이 절
+  - 정한 것 (Claude, 확인 필요): 승리 = Step 끝 Tick+1 뒤 목표 틱 이상 / 같은 틱 사망은 패배 우선 / 레벨업 중 타이머 멈춤 / HUD는 위 가운데 · 초 내림 / 승리 창은 같은 창 · 제목 키 ui.gameover.victory · 금색 / 스폰 표 마지막 시간대(300초, 8마리/초)가 30:00까지 유지(수치 추가 없음) / 건너뛰기는 틱만 바꿈 · 앞으로만
+  - 디버그 창 "판 시간 · 승리" 섹션: 판 시간 · HUD 글 · 목표 · 남은 시간 · 판 끝 창 글, [상태 변경] 목표 N초 전으로(기본 10초 = 29:50) · mm:ss로 · 바로 승리. 진입점 `GameRoot.DebugSkipToSeconds · DebugSkipToBeforeGoal · DebugVictoryNow` (읽기 DebugRunTicks · DebugTimerText · DebugGameOverTitle · DebugGameOverTime)
+  - 확인: 컴파일 0 · Setup 두 번 해시 같음 · Play에서 타이머 00:07 → 00:17 캡처 `Assets/Screenshots/p1_7_timer_hud.png`(strings 줄은 그때 메모리 표에만). 확인(실시간 Play, 2026-11-25 둘째 작업자): 레벨업 창이 뜬 실시간 약 22초 동안 틱 1396 · HUD 00:23 그대로 → 카드 고르면 다시 흐름(캡처 `Captures/p1_7_levelup_pause-1.png`, Assets 밖). 29:50 건너뛰기 → 틱 108000에 Victory · 금색 "생존 성공!" · 생존 시간 30:00 · 레벨 4 · 처치 44, 끝난 뒤 틱 그대로(캡처 `Assets/Screenshots/p1_7_victory.png`). 확인 못 함: 디버그 창 버튼 화면 · 마우스 · 패드로 카드 고르기
+  - 테스트(2026-11-25 실행, EditMode 128): 처음 127 통과 · 1 실패(strings.csv ui.hud.timer 없음) → 감독이 줄을 넣고 재실행 128개 모두 통과. 새 `RunTimerTests` 21 · `ProjectRulesTests.RunTuning_Exists_SurvivalIsPositive_AndSpawnTableCoversTheWholeRun`
+  - 남은 것: 30분 시점 보스 · 사신 · 마무리 연출(GDD 4 · 9 열린 항목, 이번 범위 밖) / 5분 이후 스폰 균형 / 디버그를 쓴 판의 기록 제외(기록이 생기면)
+  - 확인 방법: Game 씬 Play → 위 가운데 00:00부터 오르고, 레벨업 카드가 떠 있는 동안 멈추면 정상. 디버그 창 "판 시간 · 승리"에서 "목표 전으로 건너뛰기"(10초)를 누르면 29:50이 되고, 10초 뒤 금색 승리 창(생존 시간 30:00 · 레벨 · 처치)이 뜨면 정상. [다시 시작]은 1-5와 같다
 
 ## 다른 PC에서 할 일
 - Claude Hand 패키지(manifest.json)는 PC마다 `unity-install`로 넣는다.
