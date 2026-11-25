@@ -42,6 +42,7 @@ namespace Myong.Editor
                 new Section { Title = "판 · 시드", Draw = DrawRun },
                 new Section { Title = "플레이어", Draw = DrawPlayer },
                 new Section { Title = "적", Draw = DrawEnemies },
+                new Section { Title = "무기", Draw = DrawWeapons },
                 new Section { Title = "텍스트", Draw = DrawText },
             };
         }
@@ -137,6 +138,25 @@ namespace Myong.Editor
             if (GUILayout.Button(StateChange + "모두 제거")) root.DebugClearEnemies();
             bool paused = root.DebugSpawningPaused;
             if (GUILayout.Button(StateChange + (paused ? "스폰 재개" : "스폰 멈춤"))) root.DebugSetSpawningPaused(!paused);
+        }
+
+        void DrawWeapons(GameRoot root)
+        {
+            for (int i = 0; i < root.DebugWeaponCount; i++)
+            {
+                WeaponState weapon = root.DebugWeapon(i);
+                EditorGUILayout.LabelField($"무기 {i}", $"{root.DebugWeaponId(weapon.Kind)}  간격 {root.DebugFireIntervalTicks(weapon.Kind)}틱 · 남은 {weapon.CooldownTicks}틱");
+            }
+            EditorGUILayout.LabelField("탄 수", $"{root.DebugBulletCount} / {root.DebugBulletCapacity}  (쏜 누계 {root.DebugBulletsFiredTotal})");
+            EditorGUILayout.LabelField("처치 수", root.DebugEnemiesKilledTotal.ToString());
+            EditorGUILayout.LabelField("번쩍이는 적", root.DebugFlashingEnemies.ToString());
+            EditorGUILayout.LabelField("사격 · 적 무적", $"{(root.DebugFiringPaused ? "꺼짐" : "켜짐")} · {(root.DebugEnemiesInvincible ? "무적" : "보통")}");
+
+            bool firingPaused = root.DebugFiringPaused;
+            if (GUILayout.Button(StateChange + (firingPaused ? "사격 켜기" : "사격 끄기"))) root.DebugSetFiringPaused(!firingPaused);
+            bool invincible = root.DebugEnemiesInvincible;
+            if (GUILayout.Button(StateChange + (invincible ? "적 무적 끄기" : "적 무적 켜기"))) root.DebugSetEnemiesInvincible(!invincible);
+            if (GUILayout.Button(StateChange + "탄 모두 제거")) root.DebugClearBullets();
         }
 
         void DrawText(GameRoot root)

@@ -75,6 +75,7 @@ MyongMyong/Assets/_Game/
 - `Myong.Editor` 네임스페이스 안에서는 `Editor`가 네임스페이스로 읽힌다 — 커스텀 인스펙터는 `UnityEditor.Editor`로 풀어 쓴다.
 - 난수는 `Myong.Core.Rng`(SplitMix64) 한 곳, 용도별 스트림 `RandomStream`(지금 Spawn)을 World가 든다(`World.SpawnRandom`). `System.Random` · `UnityEngine.Random`은 규칙 코드에 쓰지 않는다. 새 용도 = enum 한 줄(기존 값은 바꾸지 않는다).
 - 적은 Core `Simulation.Step`(추적 → 밀어내기 → 스폰) + `World.Enemies`(동시 최대 수 크기의 고정 배열, 빠지면 맨 끝 것을 당겨 채움, ID는 다시 쓰지 않음), 수치는 데이터 `Data/EnemyTable.asset`(종류: 속도 · 반지름 · 비주얼 ID) · `Data/SpawnTable.asset`(시간대별 초당 마릿수 · 스폰 반경 · 동시 최대 수), 그리기는 `EnemyRenderPool` 한 곳(SpriteRenderer를 최대 수만큼 미리 만들어 재사용, 그림이 없는 비주얼 ID는 `PlaceholderShapes` 단색 원). 새 적 = EnemyTable 한 줄, 새 시간대 = SpawnTable 한 줄.
+- 자동 사격은 Core `Simulation.Step`(추적 → 밀어내기 → 발사 → 탄 이동 · 맞기 → 죽은 적 빼기 → 스폰) + `WeaponRules`(사거리 안 가장 가까운 적 조준, 발사 간격은 틱으로 반올림, 탄은 `World.Bullets` 고정 배열 · 빠지면 맨 끝 것으로 채움, 맞기는 적 해시 격자 `EnemyGrid`를 밀어내기와 같이 씀, 죽은 적은 틱 끝에 빼고 ID는 다시 쓰지 않음), 수치는 데이터 `Data/WeaponTable.asset`(무기: 발사 간격 · 탄 속도 · 피해 · 사거리 · 한 번에 쏘는 수 · 관통 · 탄 반지름 · 비주얼 ID / 시작 무기 · 탄 최대 수 · 총구 높이) + 적 체력은 `EnemyTable`, 그리기는 `BulletRenderPool`(그림이 없는 비주얼 ID는 `PlaceholderShapes.Dot` 단색 도트) · 맞은 적 흰색 번쩍임은 `EnemyRenderPool`(`EnemyState.LastHitTick`). 새 무기 = WeaponTable 한 줄.
 - (시스템이 생길 때마다 한 줄씩: "○○는 `클래스` 한 곳, 데이터 `에셋`, 새 항목 = 표 한 줄")
 
 ## 핵심 설계 규칙 (변경 금지)

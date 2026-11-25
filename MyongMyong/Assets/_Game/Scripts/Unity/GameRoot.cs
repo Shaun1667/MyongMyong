@@ -17,11 +17,13 @@ namespace Myong.Unity
         [SerializeField] SimulationTuning simulationTuning;
         [SerializeField] EnemyTable enemyTable;
         [SerializeField] SpawnTable spawnTable;
+        [SerializeField] WeaponTable weaponTable;
 
         [Header("Scene")]
         [SerializeField] PlayerInputReader input;
         [SerializeField] PlayerView playerView;
         [SerializeField] EnemyRenderPool enemyView;
+        [SerializeField] BulletRenderPool bulletView;
 
         [Header("Seed")]
         [Tooltip("Off: a new seed every run. On: always Fixed Seed.")]
@@ -44,10 +46,12 @@ namespace Myong.Unity
         void StartRun(int seed)
         {
             EnemyRulesData enemyRules = enemyTable != null && spawnTable != null ? spawnTable.ToRules(enemyTable) : EnemyRulesData.None;
-            simulation = new Simulation(simulationTuning.TicksPerSecond, playerTuning.ToData(), enemyRules);
+            WeaponRulesData weaponRules = weaponTable != null ? weaponTable.ToRules() : WeaponRulesData.None;
+            simulation = new Simulation(simulationTuning.TicksPerSecond, playerTuning.ToData(), enemyRules, weaponRules);
             world = simulation.CreateWorld(seed);
             accumulator = 0f;
             if (enemyView != null) enemyView.Prepare(enemyRules.MaxAlive, enemyTable);
+            if (bulletView != null) bulletView.Prepare(weaponRules.MaxBullets, weaponTable);
         }
 
         void Update()
@@ -72,7 +76,8 @@ namespace Myong.Unity
 
             float alpha = accumulator / tick;
             if (playerView != null) playerView.Render(world.Player, alpha, playerTuning.MoveSpeed);
-            if (enemyView != null) enemyView.Render(world.Enemies, world.EnemyCount, alpha);
+            if (enemyView != null) enemyView.Render(world.Enemies, world.EnemyCount, alpha, world.Tick);
+            if (bulletView != null) bulletView.Render(world.Bullets, world.BulletCount, alpha);
         }
 
         // ---- 디버그 진입점 (에디터 디버그 창 Myong/Debug/Debug Window 가 부른다) ----
@@ -121,6 +126,56 @@ namespace Myong.Unity
         public void DebugSetSpawningPaused(bool paused)
         {
             world.SpawningPaused = paused;
+        }
+
+        /// <summary>날아가는 탄 수.</summary>
+        public int DebugBulletCount => world.BulletCount;
+
+        public int DebugBulletCapacity => world.Bullets.Length;
+
+        public long DebugBulletsFiredTotal => world.BulletsFiredTotal;
+
+        /// <summary>이 판의 처치 수.</summary>
+        public long DebugEnemiesKilledTotal => world.EnemiesKilledTotal;
+
+        public bool DebugFiringPaused => world.FiringPaused;
+
+        public bool DebugEnemiesInvincible => world.EnemiesInvincible;
+
+        /// <summary>가진 무기 수.</summary>
+        public int DebugWeaponCount => world.Weapons.Length;
+
+        /// <summary>가진 무기 하나(확인용, 복사본).</summary>
+        public WeaponState DebugWeapon(int index) => world.Weapons[index];
+
+        /// <summary>무기 종류의 표 id(없으면 빈 문자열).</summary>
+        public string DebugWeaponId(int kind) => weaponTable != null && kind >= 0 && kind < weaponTable.Rows.Count ? weaponTable.Rows[kind].id : string.Empty;
+
+        /// <summary>무기 종류의 발사 간격(틱).</summary>
+        public int DebugFireIntervalTicks(int kind) => simulation.FireIntervalTicks(kind);
+
+        /// <summary>탄 하나의 상태(확인용, 복사본).</summary>
+        public BulletState DebugBullet(int index) => world.Bullets[index];
+
+        /// <summary>지난 프레임에 흰색으로 번쩍인 적 수(표시 확인용).</summary>
+        public int DebugFlashingEnemies => enemyView != null ? enemyView.FlashingCount : 0;
+
+        /// <summary>[상태 변경] 자동 사격 멈춤 / 재개.</summary>
+        public void DebugSetFiringPaused(bool paused)
+        {
+            world.FiringPaused = paused;
+        }
+
+        /// <summary>[상태 변경] 적 무적 켜기 / 끄기(탄은 맞고 사라지지만 체력이 줄지 않는다).</summary>
+        public void DebugSetEnemiesInvincible(bool invincible)
+        {
+            world.EnemiesInvincible = invincible;
+        }
+
+        /// <summary>[상태 변경] 날아가는 탄 모두 제거.</summary>
+        public void DebugClearBullets()
+        {
+            simulation.ClearBullets(world);
         }
 
         public Vec2 DebugPlayerPosition => world.Player.Position;

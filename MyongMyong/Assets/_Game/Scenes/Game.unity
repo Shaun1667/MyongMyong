@@ -295,6 +295,53 @@ Camera:
   m_OcclusionCulling: 1
   m_StereoConvergence: 10
   m_StereoSeparation: 0.022
+--- !u!1 &491351433
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 491351435}
+  - component: {fileID: 491351434}
+  m_Layer: 0
+  m_Name: Bullets
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!114 &491351434
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 491351433}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 4cbf9ca1fc981b747b437f47d294ee35, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Myong.Unity::Myong.Unity.BulletRenderPool
+  spriteMaterial: {fileID: 2100000, guid: 9dfc825aed78fcd4ba02077103263b40, type: 2}
+  sortingOrder: 1
+  visuals: []
+--- !u!4 &491351435
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 491351433}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 0}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!1 &898431471
 GameObject:
   m_ObjectHideFlags: 0
@@ -326,6 +373,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: Myong.Unity::Myong.Unity.EnemyRenderPool
   spriteMaterial: {fileID: 2100000, guid: 9dfc825aed78fcd4ba02077103263b40, type: 2}
   sortingOrder: -1
+  hitFlashTicks: 2
   visuals: []
 --- !u!4 &898431473
 Transform:
@@ -639,9 +687,11 @@ MonoBehaviour:
   simulationTuning: {fileID: 11400000, guid: 30e629889ab17694eb7b4713f13cd9d7, type: 2}
   enemyTable: {fileID: 11400000, guid: 2f678ec24d2c4854b8e6a7974d650892, type: 2}
   spawnTable: {fileID: 11400000, guid: 4d8b2a24cca6a0f4f8ade34eade8cf94, type: 2}
+  weaponTable: {fileID: 11400000, guid: 4b6208542bdf2e14ca7bfec466325e8e, type: 2}
   input: {fileID: 1587400898}
   playerView: {fileID: 1060889465}
   enemyView: {fileID: 898431472}
+  bulletView: {fileID: 491351434}
   useFixedSeed: 0
   fixedSeed: 0
 --- !u!114 &1587400898
@@ -791,3 +841,4 @@ SceneRoots:
   - {fileID: 1587400899}
   - {fileID: 1481378130}
   - {fileID: 898431473}
+  - {fileID: 491351435}

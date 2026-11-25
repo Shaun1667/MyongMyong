@@ -38,6 +38,24 @@ namespace Myong.Core
         /// <summary>시간대 스폰을 멈췄는지(디버그).</summary>
         public bool SpawningPaused;
 
+        /// <summary>이 판에서 처치한 적의 누계.</summary>
+        public long EnemiesKilledTotal;
+        /// <summary>적이 피해를 받지 않는지(디버그). 탄은 맞고 사라지지만 체력이 줄지 않는다.</summary>
+        public bool EnemiesInvincible;
+
+        /// <summary>가진 무기(판 시작 때 만든다).</summary>
+        public WeaponState[] Weapons = new WeaponState[0];
+        /// <summary>날아가는 탄. 앞에서 BulletCount개만 쓴다(크기 = 탄 최대 수, 판 시작 때 한 번 만든다). 빠지면 맨 끝 것을 그 자리로 옮긴다.</summary>
+        public BulletState[] Bullets = new BulletState[0];
+        public int BulletCount;
+        /// <summary>탄마다 맞힌 적 ID(탄 i의 칸 = i * BulletHitStride부터 BulletHitStride개).</summary>
+        public int[] BulletHitIds = new int[0];
+        public int BulletHitStride = 1;
+        /// <summary>이 판에서 쏜 탄의 누계.</summary>
+        public long BulletsFiredTotal;
+        /// <summary>자동 사격을 멈추는지(디버그).</summary>
+        public bool FiringPaused;
+
         public int AllocateEntityId()
         {
             NextEntityId++;

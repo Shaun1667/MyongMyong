@@ -36,21 +36,32 @@ namespace Myong.Core
 
         readonly PlayerTuningData player;
         readonly EnemyRulesData enemies;
+        readonly WeaponRulesData weapons;
+        readonly EnemyGrid enemyGrid;
         readonly EnemySeparation separation;
+        readonly WeaponRules weaponRules;
 
         public Simulation(int ticksPerSecond, PlayerTuningData player)
-            : this(ticksPerSecond, player, EnemyRulesData.None)
+            : this(ticksPerSecond, player, EnemyRulesData.None, WeaponRulesData.None)
         {
         }
 
         public Simulation(int ticksPerSecond, PlayerTuningData player, EnemyRulesData enemies)
+            : this(ticksPerSecond, player, enemies, WeaponRulesData.None)
+        {
+        }
+
+        public Simulation(int ticksPerSecond, PlayerTuningData player, EnemyRulesData enemies, WeaponRulesData weapons)
         {
             if (ticksPerSecond <= 0) throw new ArgumentOutOfRangeException(nameof(ticksPerSecond));
             TicksPerSecond = ticksPerSecond;
             TickSeconds = 1f / ticksPerSecond;
             this.player = player;
             this.enemies = enemies ?? throw new ArgumentNullException(nameof(enemies));
-            separation = new EnemySeparation(enemies.MaxAlive, enemies.MaxRadius);
+            this.weapons = weapons ?? throw new ArgumentNullException(nameof(weapons));
+            enemyGrid = new EnemyGrid(enemies.MaxAlive, enemies.MaxRadius);
+            separation = new EnemySeparation(enemyGrid, enemies.MaxAlive);
+            weaponRules = new WeaponRules(weapons, enemies, enemyGrid, ticksPerSecond);
         }
 
         public int TicksPerSecond { get; }
@@ -58,6 +69,14 @@ namespace Myong.Core
         public float TickSeconds { get; }
 
         public EnemyRulesData Enemies => enemies;
+
+        public WeaponRulesData Weapons => weapons;
+
+        /// <summary>무기 종류의 발사 간격(틱). 초 × 초당 틱을 반올림, 최소 1.</summary>
+        public int FireIntervalTicks(int weaponKind) => weaponRules.IntervalTicksOf(weaponKind);
+
+        /// <summary>지금 탄이 나올 자리(플레이어 위치 + 총구 오프셋).</summary>
+        public Vec2 Muzzle(World world) => weaponRules.Muzzle(world);
 
         public World CreateWorld(int seed)
         {
@@ -69,17 +88,24 @@ namespace Myong.Core
             };
             world.Player.Id = world.AllocateEntityId();
             world.Player.FacingX = Facing.Right;
+            weaponRules.InitWorld(world);
             return world;
         }
 
         /// <summary>판이 시작된 뒤 지난 시간(초) = 틱 수 × 틱 길이.</summary>
         public float ElapsedSeconds(World world) => world.Tick * TickSeconds;
 
-        /// <summary>순서: 플레이어 이동 → 적 추적 → 적끼리 밀어내기 → 스폰(새 적은 그 틱에는 움직이지 않는다).</summary>
+        /// <summary>
+        /// 순서: 플레이어 이동 → 적 추적 → 적끼리 밀어내기 → 발사(사거리 안 가장 가까운 적) → 탄 이동 · 맞기
+        /// → 죽은 적 빼기 → 스폰(새 적은 그 틱에는 움직이지 않는다). 쏜 틱에 탄도 한 틱만큼 날아간다.
+        /// </summary>
         public void Step(World world, in InputFrame input)
         {
             StepPlayer(world, input);
             StepEnemies(world);
+            weaponRules.Fire(world);
+            weaponRules.StepBullets(world);
+            WeaponRules.RemoveDeadEnemies(world);
             StepSpawning(world);
             world.Tick++;
         }
@@ -139,6 +165,8 @@ namespace Myong.Core
                 Kind = kind,
                 Position = position,
                 PreviousPosition = position,
+                Health = enemies.Kinds[kind].MaxHealth,
+                LastHitTick = EnemyState.NeverHit,
             };
             world.EnemyCount++;
             world.EnemiesSpawnedTotal++;
@@ -165,6 +193,12 @@ namespace Myong.Core
         {
             world.EnemyCount = 0;
             world.SpawnBudget = 0f;
+        }
+
+        /// <summary>날아가는 탄을 모두 없앤다(디버그). ID는 되돌리지 않는다.</summary>
+        public void ClearBullets(World world)
+        {
+            WeaponRules.ClearBullets(world);
         }
 
         /// <summary>보간 없이 바로 옮긴다(디버그 순간이동 · 나중의 재배치).</summary>

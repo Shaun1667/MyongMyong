@@ -38,6 +38,7 @@ namespace Myong.Tests
                 Assert.IsTrue(ids.Add(row.id), "duplicate enemy id " + row.id);
                 Assert.Greater(row.moveSpeed, 0f, row.id);
                 Assert.Greater(row.radius, 0f, row.id);
+                Assert.Greater(row.maxHealth, 0f, "max health: " + row.id);
                 Assert.IsFalse(string.IsNullOrEmpty(row.visualId), "no visual id: " + row.id);
             }
         }
@@ -63,6 +64,35 @@ namespace Myong.Tests
             Assert.AreEqual(spawn.Phases.Count, rules.Phases.Length);
         }
 
+[Test]
+        public void WeaponTable_Exists_AndRowsAreValid()
+        {
+            var table = AssetDatabase.LoadAssetAtPath<WeaponTable>("Assets/_Game/Data/WeaponTable.asset");
+            Assert.IsNotNull(table);
+            Assert.IsNotEmpty(table.Rows);
+            Assert.Greater(table.MaxBullets, 0);
+            var ids = new System.Collections.Generic.HashSet<string>();
+            foreach (var row in table.Rows)
+            {
+                Assert.IsFalse(string.IsNullOrEmpty(row.id), "weapon row without id");
+                Assert.IsTrue(ids.Add(row.id), "duplicate weapon id " + row.id);
+                Assert.Greater(row.fireInterval, 0f, row.id);
+                Assert.Greater(row.bulletSpeed, 0f, row.id);
+                Assert.Greater(row.damage, 0f, row.id);
+                Assert.Greater(row.range, 0f, row.id);
+                Assert.GreaterOrEqual(row.shotsPerVolley, 1, row.id);
+                Assert.GreaterOrEqual(row.pierce, 0, row.id);
+                Assert.Greater(row.bulletRadius, 0f, row.id);
+                Assert.IsFalse(string.IsNullOrEmpty(row.visualId), "no visual id: " + row.id);
+            }
+            Assert.IsNotEmpty(table.StartingWeapons, "the player starts with no weapon");
+            foreach (string id in table.StartingWeapons) Assert.GreaterOrEqual(table.IndexOf(id), 0, "unknown starting weapon " + id);
+
+            var rules = table.ToRules();
+            Assert.AreEqual(table.StartingWeapons.Count, rules.StartingWeapons.Length);
+        }
+
+        
         [Test]
         public void SimulationTuning_Exists_AndIsValid()
         {

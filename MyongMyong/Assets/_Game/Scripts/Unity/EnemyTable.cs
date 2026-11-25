@@ -17,6 +17,8 @@ namespace Myong.Unity
             [Min(0f)] public float moveSpeed;
             [Tooltip("Body radius in units (enemy-to-enemy push).")]
             [Min(0f)] public float radius;
+            [Tooltip("Health at spawn. Bullets take it down; at 0 the enemy dies.")]
+            [Min(0f)] public float maxHealth;
             [Tooltip("Visual key. With no sprite for it, a solid placeholder shape is drawn.")]
             public string visualId;
         }

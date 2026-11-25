@@ -15,6 +15,7 @@ namespace Myong.Editor
         public const string SimulationTuningPath = Folder + "/SimulationTuning.asset";
         public const string EnemyTablePath = Folder + "/EnemyTable.asset";
         public const string SpawnTablePath = Folder + "/SpawnTable.asset";
+        public const string WeaponTablePath = Folder + "/WeaponTable.asset";
 
         const float InitialMoveSpeed = 4.5f;
         const int InitialTicksPerSecond = 60;
@@ -24,11 +25,25 @@ namespace Myong.Editor
         const string InitialEnemyId = "basic";
         const float InitialEnemyMoveSpeed = 1.8f;
         const float InitialEnemyRadius = 0.3f;
+        const float InitialEnemyMaxHealth = 10f;
         const string InitialEnemyVisualId = "enemy_basic";
         const float InitialSeparationPush = 0.5f;
         const float InitialSpawnRadius = 18f;
         const int InitialMaxAlive = 300;
         static readonly (float start, float perSecond)[] InitialPhases = { (0f, 1f), (60f, 2f), (180f, 4f), (300f, 8f) };
+
+        // 무기 첫 값 (BALANCE.md와 같은 값. 기준은 에셋)
+        const string InitialWeaponId = "girl_gun";
+        const float InitialFireInterval = 0.4f;
+        const float InitialBulletSpeed = 10f;
+        const float InitialDamage = 5f;
+        const float InitialRange = 11f;
+        const int InitialShotsPerVolley = 1;
+        const int InitialPierce = 0;
+        const float InitialBulletRadius = 0.1f;
+        const string InitialBulletVisualId = "bullet_girl_gun";
+        const int InitialMaxBullets = 256;
+        const float InitialMuzzleHeight = 0.5f;
 
         [MenuItem("Myong/Setup/Create Data Assets", priority = 11)]
         public static void CreateDataAssets()
@@ -64,6 +79,7 @@ namespace Myong.Editor
                 row.FindPropertyRelative("id").stringValue = InitialEnemyId;
                 row.FindPropertyRelative("moveSpeed").floatValue = InitialEnemyMoveSpeed;
                 row.FindPropertyRelative("radius").floatValue = InitialEnemyRadius;
+                row.FindPropertyRelative("maxHealth").floatValue = InitialEnemyMaxHealth;
                 row.FindPropertyRelative("visualId").stringValue = InitialEnemyVisualId;
                 so.FindProperty("separationPush").floatValue = InitialSeparationPush;
                 so.ApplyModifiedPropertiesWithoutUndo();
@@ -89,6 +105,32 @@ namespace Myong.Editor
                 AssetDatabase.CreateAsset(asset, SpawnTablePath);
             }
 
+if (AssetDatabase.LoadAssetAtPath<WeaponTable>(WeaponTablePath) == null)
+            {
+                var asset = ScriptableObject.CreateInstance<WeaponTable>();
+                var so = new SerializedObject(asset);
+                var rows = so.FindProperty("rows");
+                rows.arraySize = 1;
+                var row = rows.GetArrayElementAtIndex(0);
+                row.FindPropertyRelative("id").stringValue = InitialWeaponId;
+                row.FindPropertyRelative("fireInterval").floatValue = InitialFireInterval;
+                row.FindPropertyRelative("bulletSpeed").floatValue = InitialBulletSpeed;
+                row.FindPropertyRelative("damage").floatValue = InitialDamage;
+                row.FindPropertyRelative("range").floatValue = InitialRange;
+                row.FindPropertyRelative("shotsPerVolley").intValue = InitialShotsPerVolley;
+                row.FindPropertyRelative("pierce").intValue = InitialPierce;
+                row.FindPropertyRelative("bulletRadius").floatValue = InitialBulletRadius;
+                row.FindPropertyRelative("visualId").stringValue = InitialBulletVisualId;
+                var starting = so.FindProperty("startingWeapons");
+                starting.arraySize = 1;
+                starting.GetArrayElementAtIndex(0).stringValue = InitialWeaponId;
+                so.FindProperty("maxBullets").intValue = InitialMaxBullets;
+                so.FindProperty("muzzleHeight").floatValue = InitialMuzzleHeight;
+                so.ApplyModifiedPropertiesWithoutUndo();
+                AssetDatabase.CreateAsset(asset, WeaponTablePath);
+            }
+
+            
             AssetDatabase.SaveAssets();
         }
     }

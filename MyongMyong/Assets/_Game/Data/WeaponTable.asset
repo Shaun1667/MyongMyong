@@ -1,0 +1,28 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 7e3efbc6d610beb4ebdbeb0d7bed7ce6, type: 3}
+  m_Name: WeaponTable
+  m_EditorClassIdentifier: Myong.Unity::Myong.Unity.WeaponTable
+  rows:
+  - id: girl_gun
+    fireInterval: 0.4
+    bulletSpeed: 10
+    damage: 5
+    range: 11
+    shotsPerVolley: 1
+    pierce: 0
+    bulletRadius: 0.1
+    visualId: bullet_girl_gun
+  startingWeapons:
+  - girl_gun
+  maxBullets: 256
+  muzzleHeight: 0.5

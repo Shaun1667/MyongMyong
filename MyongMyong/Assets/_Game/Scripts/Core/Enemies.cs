@@ -7,13 +7,16 @@ namespace Myong.Core
     {
         /// <summary>이동 속도(유닛/초).</summary>
         public readonly float MoveSpeed;
-        /// <summary>몸 반지름(유닛). 적끼리 밀어내기에 쓴다.</summary>
+        /// <summary>몸 반지름(유닛). 적끼리 밀어내기 · 탄 맞기에 쓴다.</summary>
         public readonly float Radius;
+        /// <summary>처음 체력. 맞으면 줄고 0 이하가 되면 죽는다.</summary>
+        public readonly float MaxHealth;
 
-        public EnemyKindData(float moveSpeed, float radius)
+        public EnemyKindData(float moveSpeed, float radius, float maxHealth = 1f)
         {
             MoveSpeed = moveSpeed;
             Radius = radius;
+            MaxHealth = maxHealth;
         }
     }
 
@@ -48,7 +51,7 @@ namespace Myong.Core
         public readonly int MaxAlive;
         /// <summary>겹친 적끼리 한 틱에 겹친 거리의 얼마를 풀지(0 = 밀어내기 없음, 1 = 한 틱에 다 풂).</summary>
         public readonly float SeparationPush;
-        /// <summary>가장 큰 몸 반지름(밀어내기 격자 칸 크기).</summary>
+        /// <summary>가장 큰 몸 반지름(해시 격자 칸 크기).</summary>
         public readonly float MaxRadius;
 
         public EnemyRulesData(EnemyKindData[] kinds, SpawnPhaseData[] phases, float spawnRadius, int maxAlive, float separationPush)
@@ -87,51 +90,82 @@ namespace Myong.Core
 
     public struct EnemyState
     {
+        /// <summary>LastHitTick에 넣는 값: 맞은 적 없음.</summary>
+        public const long NeverHit = long.MinValue / 2;
+
         public int Id;
         /// <summary>EnemyRulesData.Kinds의 번호.</summary>
         public int Kind;
         public Vec2 Position;
         /// <summary>직전 틱의 위치(표시 보간용).</summary>
         public Vec2 PreviousPosition;
+        public float Health;
+        /// <summary>이번 틱에 죽어 틱 끝에 빠질 적(탄 판정에서 건너뛴다).</summary>
+        public bool Dead;
+        /// <summary>마지막으로 탄에 맞은 틱(표시 쪽 번쩍임용). 맞은 적 없으면 NeverHit.</summary>
+        public long LastHitTick;
     }
 
     /// <summary>
-    /// 적끼리 겹침 밀어내기. 해시 격자(고정 크기 배열)로 가까운 것만 본다 — 틱마다 할당하지 않는다.
-    /// 상태가 아닌 계산용 작업 공간이라 World가 아니라 Simulation이 든다.
+    /// 적 위치의 해시 격자(고정 크기 배열). 밀어내기와 탄 맞기가 같이 쓴다 — 틱마다 할당하지 않는다.
+    /// 상태가 아닌 계산용 작업 공간이라 World가 아니라 Simulation이 든다. 적이 움직인 뒤에는 Build를 다시 부른다.
     /// </summary>
-    sealed class EnemySeparation
+    sealed class EnemyGrid
     {
-        const int BucketCount = 4096; // 2의 거듭제곱
+        public const int BucketCount = 4096; // 2의 거듭제곱
         const int BucketMask = BucketCount - 1;
         const int HashX = 73856093;
         const int HashY = 19349663;
         const float MinCellSize = 0.0001f;
+
+        /// <summary>칸마다 첫 적 번호(-1 = 비었음).</summary>
+        public readonly int[] Head = new int[BucketCount];
+        /// <summary>같은 칸의 다음 적 번호(-1 = 끝).</summary>
+        public readonly int[] Next;
+        public readonly float CellSize;
+
+        public EnemyGrid(int capacity, float maxRadius)
+        {
+            Next = new int[Math.Max(capacity, 1)];
+            CellSize = Math.Max(maxRadius * 2f, MinCellSize);
+        }
+
+        public void Build(EnemyState[] enemies, int count)
+        {
+            for (int b = 0; b < BucketCount; b++) Head[b] = -1;
+            for (int i = 0; i < count; i++)
+            {
+                int bucket = Bucket(Cell(enemies[i].Position.X), Cell(enemies[i].Position.Y));
+                Next[i] = Head[bucket];
+                Head[bucket] = i;
+            }
+        }
+
+        public int Cell(float v) => (int)Math.Floor(v / CellSize);
+
+        public static int Bucket(int cx, int cy) => unchecked((cx * HashX) ^ (cy * HashY)) & BucketMask;
+    }
+
+    /// <summary>적끼리 겹침 밀어내기. 해시 격자로 가까운 것만 본다 — 틱마다 할당하지 않는다.</summary>
+    sealed class EnemySeparation
+    {
         const float SamePointSquared = 1e-12f;
 
-        readonly int[] head = new int[BucketCount];
-        readonly int[] next;
+        readonly EnemyGrid grid;
         readonly Vec2[] push;
         readonly int[] visited = new int[9];
-        readonly float cellSize;
 
-        public EnemySeparation(int capacity, float maxRadius)
+        public EnemySeparation(EnemyGrid grid, int capacity)
         {
-            next = new int[Math.Max(capacity, 1)];
+            this.grid = grid;
             push = new Vec2[Math.Max(capacity, 1)];
-            cellSize = Math.Max(maxRadius * 2f, MinCellSize);
         }
 
         public void Apply(EnemyState[] enemies, int count, EnemyKindData[] kinds, float strength)
         {
             if (strength <= 0f || count < 2) return;
 
-            for (int b = 0; b < BucketCount; b++) head[b] = -1;
-            for (int i = 0; i < count; i++)
-            {
-                int bucket = Bucket(Cell(enemies[i].Position.X), Cell(enemies[i].Position.Y));
-                next[i] = head[bucket];
-                head[bucket] = i;
-            }
+            grid.Build(enemies, count);
 
             // 양쪽이 서로를 보고 겹친 거리의 절반씩 물러난다.
             float half = strength * 0.5f;
@@ -139,18 +173,18 @@ namespace Myong.Core
             {
                 Vec2 p = enemies[i].Position;
                 float r = kinds[enemies[i].Kind].Radius;
-                int cx = Cell(p.X);
-                int cy = Cell(p.Y);
+                int cx = grid.Cell(p.X);
+                int cy = grid.Cell(p.Y);
                 int visitedCount = 0;
                 Vec2 sum = Vec2.Zero;
                 for (int dy = -1; dy <= 1; dy++)
                 {
                     for (int dx = -1; dx <= 1; dx++)
                     {
-                        int bucket = Bucket(cx + dx, cy + dy);
-                        if (Seen(bucket, visitedCount)) continue;
+                        int bucket = EnemyGrid.Bucket(cx + dx, cy + dy);
+                        if (Seen(visited, bucket, visitedCount)) continue;
                         visited[visitedCount++] = bucket;
-                        for (int j = head[bucket]; j >= 0; j = next[j])
+                        for (int j = grid.Head[bucket]; j >= 0; j = grid.Next[j])
                         {
                             if (j == i) continue;
                             float minDistance = r + kinds[enemies[j].Kind].Radius;
@@ -176,7 +210,7 @@ namespace Myong.Core
             for (int i = 0; i < count; i++) enemies[i].Position = enemies[i].Position + push[i];
         }
 
-        bool Seen(int bucket, int visitedCount)
+        internal static bool Seen(int[] visited, int bucket, int visitedCount)
         {
             for (int k = 0; k < visitedCount; k++)
             {
@@ -184,9 +218,5 @@ namespace Myong.Core
             }
             return false;
         }
-
-        int Cell(float v) => (int)Math.Floor(v / cellSize);
-
-        static int Bucket(int cx, int cy) => unchecked((cx * HashX) ^ (cy * HashY)) & BucketMask;
     }
 }
