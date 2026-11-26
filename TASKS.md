@@ -1,7 +1,7 @@
 # TASKS — MyongMyong (묭묭)
 
 ## 진행 요약 (2026-11-25 기준 — 새 세션은 여기부터 읽는다)
-**최신 (2026-11-25): Phase 0(0-1 ~ 0-5) · G-1 주인공 리깅 · 1-1 WASD 8방향 이동 · 1-2 적 스폰 · 추적 · 1-3 자동 사격 · 1-4 경험치 · 레벨업 · 1-5 접촉 피해 · 체력 · 게임 오버 · 1-6 가상 조이스틱 · 1-7 30분 생존 승리 · 타이머 HUD 구현 — 모두 플레이 확인 대기. Game 씬 `Assets/_Game/Scenes/Game.unity`. 브랜치 `phase1-enemy`. 테스트 EditMode 106개(1-6에서 13개 추가) — 2026-11-25 실행: 106개 모두 통과. 스폰 첫 시간대 1.5마리/초는 사용자 확정(2026-11-25). EditMode 128개 모두 통과. 다음: 사용자 플레이 확인 → 다음 항목 미정. 결정 (2026-11-26, 사용자 "묭묭 새 무기는 안넣는 걸로 할게"): 새 무기를 레벨업 선택지로 넣는 항목은 하지 않음.**
+**최신 (2026-11-25): Phase 0(0-1 ~ 0-5) · G-1 주인공 리깅 · 1-1 WASD 8방향 이동 · 1-2 적 스폰 · 추적 · 1-3 자동 사격 · 1-4 경험치 · 레벨업 · 1-5 접촉 피해 · 체력 · 게임 오버 · 1-6 가상 조이스틱 · 1-7 30분 생존 승리 · 타이머 HUD · 1-8 적 종류 추가(runner · brute · elite, 시간대 비중 · 정예 웨이브 · runner 떼 돌진) 구현 — 모두 플레이 확인 대기. EditMode 144개 모두 통과(1-8에서 16개 추가). Game 씬 `Assets/_Game/Scenes/Game.unity`. 브랜치 `phase1-enemy`. 테스트 EditMode 106개(1-6에서 13개 추가) — 2026-11-25 실행: 106개 모두 통과. 스폰 첫 시간대 1.5마리/초는 사용자 확정(2026-11-25). EditMode 128개 모두 통과. 다음: 사용자 플레이 확인 → 다음 항목 미정. 결정 (2026-11-26, 사용자 "묭묭 새 무기는 안넣는 걸로 할게"): 새 무기를 레벨업 선택지로 넣는 항목은 하지 않음. 결정 (2026-11-26, 사용자 "묭묭 1 2 3 4 5 순서대로 진행해줘" · "그렇게 진행해줘"): 다음 순서 1-8 적 종류 → 1-9 패시브 → 1-10 피격 · 사망 연출 → 1-11 30분 마무리(강한 적이 나와 판을 끝냄) → 1-12 영구 강화(코인).**
 
 ## Phase 0. 세팅
 - [x] **0-0. 문서 3종** (2026-11-24 사용자 "MY_DEV_GUIDE 대입") — CLAUDE.md · GDD.md · TASKS.md
@@ -129,6 +129,19 @@
   - 테스트(2026-11-25 실행, EditMode 128): 처음 127 통과 · 1 실패(strings.csv ui.hud.timer 없음) → 감독이 줄을 넣고 재실행 128개 모두 통과. 새 `RunTimerTests` 21 · `ProjectRulesTests.RunTuning_Exists_SurvivalIsPositive_AndSpawnTableCoversTheWholeRun`
   - 남은 것: 30분 시점 보스 · 사신 · 마무리 연출(GDD 4 · 9 열린 항목, 이번 범위 밖) / 5분 이후 스폰 균형 / 디버그를 쓴 판의 기록 제외(기록이 생기면)
   - 확인 방법: Game 씬 Play → 위 가운데 00:00부터 오르고, 레벨업 카드가 떠 있는 동안 멈추면 정상. 디버그 창 "판 시간 · 승리"에서 "목표 전으로 건너뛰기"(10초)를 누르면 29:50이 되고, 10초 뒤 금색 승리 창(생존 시간 30:00 · 레벨 · 처치)이 뜨면 정상. [다시 시작]은 1-5와 같다
+
+- [x] **1-8. 적 종류 추가** (2026-11-26 사용자 "묭묭 1 2 3 4 5 순서대로 진행해줘" — ① 적 종류) — 플레이 확인 대기
+  - 범위: 새 적 3종(runner 빠르고 약함 · brute 느리고 단단함 · elite 정예 큰 젬) · 시간대 종류 비중 · 정예 웨이브 · runner 떼 돌진 · 큰 젬 그림 · 디버그 적 섹션. 새 그림 없음(단색 원 색 · 크기만), 화면 글 없음
+  - 구현: Core `Enemies.cs`(`SpawnWeight` · `SpawnPattern` Scatter/Swarm · `SpawnWaveData` · `SpawnPhaseData.Mix` · `KindAt` · `EnemyRulesData.Waves` · `ChargeDespawnDistance` · `EnemyState.Charge`) · `Simulation`(한 마리마다 비중대로 종류, 한 종류면 난수 안 뽑음 → 0 ~ 60초 결과 전과 같음 · 웨이브 틱 · Swarm 돌진 · 24유닛 밖이면 사라짐(처치 · 젬 없음) · 디버그 `SpawnEnemies(world, count, kind)` · `SpawnWaveNow`) · `World`(`EnemiesSpawnedByKind` · `EnemiesKilledByKind` · `EnemiesEscapedTotal`) · `Weapons`(처치 종류별 누계) / Unity `SpawnTable`(mix · waves · chargeDespawnDistance) · `EnemyRenderPool`(placeholderColor) · `GemRenderPool`(경험치 10 이상 큰 도트) · `GameRoot` / Editor `MyongDebugWindow` 적 섹션(종류별 지금 수 · 스폰 · 처치 · 지금 비중 · 웨이브 다음 틱 · 큰 젬 수, [상태 변경] 종류 골라 N마리 소환 · 웨이브 [지금]) · `DataSetup` · `GameSceneBuilder`(새 적 색 · 큰 젬 값)
+  - 데이터: `EnemyTable.asset` runner · brute · elite 줄 추가(basic 그대로) · `SpawnTable.asset` 60 · 180 · 300초 mix · 웨이브 2줄 · 돌진 사라지는 거리 24 — BALANCE 적 종류 · 스폰 절
+  - 정한 것 (Claude, 확인 필요): 적 데이터는 종류마다 에셋이 아니라 `EnemyTable` 한 줄(핵심 규칙 6 그대로) / 특수 행동은 runner 떼 직선 돌진 하나, 정예는 보통처럼 쫓음 / 색 basic 분홍(그대로) · runner 주황 · brute 남보라 · elite 진홍 / 수치 · 비중 · 웨이브는 BALANCE (첫 시간대 1.5마리/초 · basic만은 사용자 확정 그대로)
+  - 균형(Core만, 매번 첫 카드, 가까운 젬으로 가며 1.5유닛 안 적을 피함, 6판 · 7분): 5판 생존 · 1판 261초 패배, 7분 레벨 26 ~ 27 · 정예 5/5 처치 · 동시 최대 72 ~ 111마리 · 1틱 0.015 ~ 0.022ms. 가만히 서 있기 시드 7919 30.2초 · 15838 29.5초(1-5 기록과 같음), 시드 20261125 · 39595는 134초(120초 정예 접촉 20으로 보임)
+  - 확인: 컴파일 오류 0 · Build Game Scene 두 번 해시 같음(C429BB6CBC0ED228) · Play(실시간, 시드 20261125, 무적 · 첫 카드, 시간 건너뛰기): 0 ~ 7초 basic만 → 62초 뒤 runner 섞임 → 120초 정예 1마리(약 157초 처치) → 150초 runner 9마리 떼 돌진(5마리 지나가 사라짐) → 182초 뒤 brute 섞임 → 디버그 elite 2 소환 → 302초 + 300마리(basic 124 · runner 77 · brute 95 · elite 2): 프레임 평균 6.28ms · 시뮬레이션 0.486ms · CPU 5.0ms(메인 1.45 · 렌더 0.81) · GPU 0.11ms(에디터)
+  - 확인 못 함: 큰 젬을 화면에서 보기(테스트로만, 정예 젬 값 20) · 디버그 창 버튼 직접 누르기 · 실기기 성능. 첫 Play 세션에서 캡처 뒤 NullReference 한 번(원인 모름, 다시 시작한 뒤 안 남)
+  - 고침 (감독, 2026-11-26): 작업 중 MCP 연결이 한 번 MoaRPG로 넘어가 `EnemyKindTests.cs`가 MoaRPG에 생김 → 감독이 MoaRPG에서 빼고 이 프로젝트로 옮김
+  - 테스트(2026-11-26 실행, EditMode 144): 모두 통과. 새 `EnemyKindTests`(15) · `ProjectRulesTests.SpawnTable_FirstPhaseIsTheConfirmedOne_AndChargersLeaveOffScreen` · 기존 SpawnTable 테스트에 mix · 웨이브 id 검사
+  - 캡처: `Assets/Screenshots/p1_8_phase60_runner_mix.png` · `p1_8_swarm_and_elite.png` · `p1_8_phase180_brute_mix.png` · `p1_8_phase300_300enemies.png`
+  - 확인 방법: Game 씬 Play → 1분이 지나면 작은 주황 적이 섞이고, 2분에 큰 진홍 정예가 하나 나와 처치하면 큰 젬, 2분 30초에 주황 떼가 한쪽에서 곧게 돌진해 지나가고, 3분부터 큰 남보라 적이 섞이면 정상. 디버그 창 판 시간 섹션으로 시간을 건너뛰고, 적 섹션에서 종류별 수 · 소환
 
 ## 다른 PC에서 할 일
 - Claude Hand 패키지(manifest.json)는 PC마다 `unity-install`로 넣는다.

@@ -1371,6 +1371,8 @@ MonoBehaviour:
   spriteMaterial: {fileID: 2100000, guid: 9dfc825aed78fcd4ba02077103263b40, type: 2}
   sortingOrder: -2
   placeholderRadius: 0.09
+  bigGemValue: 10
+  bigPlaceholderRadius: 0.16
   visuals: []
 --- !u!4 &666767303
 Transform:
@@ -2104,7 +2106,19 @@ MonoBehaviour:
   spriteMaterial: {fileID: 2100000, guid: 9dfc825aed78fcd4ba02077103263b40, type: 2}
   sortingOrder: -1
   hitFlashTicks: 2
-  visuals: []
+  visuals:
+  - visualId: enemy_runner
+    sprite: {fileID: 0}
+    flashSprite: {fileID: 0}
+    placeholderColor: {r: 0.9411765, g: 0.5411765, b: 0.23529412, a: 1}
+  - visualId: enemy_brute
+    sprite: {fileID: 0}
+    flashSprite: {fileID: 0}
+    placeholderColor: {r: 0.43137255, g: 0.3372549, b: 0.78431374, a: 1}
+  - visualId: enemy_elite
+    sprite: {fileID: 0}
+    flashSprite: {fileID: 0}
+    placeholderColor: {r: 0.8235294, g: 0.23529412, b: 0.27450982, a: 1}
 --- !u!4 &898431473
 Transform:
   m_ObjectHideFlags: 0

@@ -20,4 +20,25 @@ MonoBehaviour:
     experience: 1
     contactDamage: 10
     visualId: enemy_basic
+  - id: runner
+    moveSpeed: 3
+    radius: 0.22
+    maxHealth: 5
+    experience: 1
+    contactDamage: 5
+    visualId: enemy_runner
+  - id: brute
+    moveSpeed: 1.1
+    radius: 0.42
+    maxHealth: 35
+    experience: 3
+    contactDamage: 15
+    visualId: enemy_brute
+  - id: elite
+    moveSpeed: 1.4
+    radius: 0.75
+    maxHealth: 220
+    experience: 20
+    contactDamage: 20
+    visualId: enemy_elite
   separationPush: 0.5

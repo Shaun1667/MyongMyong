@@ -26,20 +26,110 @@ namespace Myong.Core
         }
     }
 
-    /// <summary>스폰 표의 한 시간대: StartSeconds부터 다음 시간대 전까지 초당 SpawnsPerSecond마리의 Kind.</summary>
+    /// <summary>시간대 안에서 한 종류가 나올 비중. 비중은 서로의 비율로만 쓴다(합이 1일 필요 없음).</summary>
+    public readonly struct SpawnWeight
+    {
+        /// <summary>EnemyRulesData.Kinds의 번호.</summary>
+        public readonly int Kind;
+        public readonly float Weight;
+
+        public SpawnWeight(int kind, float weight)
+        {
+            Kind = kind;
+            Weight = weight;
+        }
+    }
+
+    /// <summary>
+    /// 스폰 표의 한 시간대: StartSeconds부터 다음 시간대 전까지 초당 SpawnsPerSecond마리. 한 마리마다 Mix의 비중대로 종류를 고른다(스폰 난수 스트림).
+    /// 종류가 하나뿐이면 난수를 뽑지 않는다 — 한 종류 시간대의 결과는 종류 섞기가 생기기 전과 같다.
+    /// </summary>
     public readonly struct SpawnPhaseData
     {
         public readonly float StartSeconds;
         public readonly float SpawnsPerSecond;
-        /// <summary>EnemyRulesData.Kinds의 번호.</summary>
+        /// <summary>첫 종류(Mix[0]). 한 종류 시간대면 그 종류.</summary>
         public readonly int Kind;
+        /// <summary>나올 종류와 비중(1개 이상).</summary>
+        public readonly SpawnWeight[] Mix;
+        /// <summary>Mix 비중의 합.</summary>
+        public readonly float TotalWeight;
 
+        /// <summary>한 종류만 나오는 시간대.</summary>
         public SpawnPhaseData(float startSeconds, float spawnsPerSecond, int kind)
+            : this(startSeconds, spawnsPerSecond, new[] { new SpawnWeight(kind, 1f) })
         {
+        }
+
+        public SpawnPhaseData(float startSeconds, float spawnsPerSecond, SpawnWeight[] mix)
+        {
+            if (mix == null || mix.Length == 0) throw new ArgumentException("a spawn phase needs at least one enemy kind", nameof(mix));
             StartSeconds = startSeconds;
             SpawnsPerSecond = spawnsPerSecond;
-            Kind = kind;
+            Mix = (SpawnWeight[])mix.Clone();
+            Kind = Mix[0].Kind;
+            float total = 0f;
+            foreach (var w in Mix)
+            {
+                if (!(w.Weight > 0f)) throw new ArgumentOutOfRangeException(nameof(mix), "spawn weight must be positive");
+                total += w.Weight;
+            }
+            TotalWeight = total;
         }
+
+        /// <summary>[0, 1)의 수 r로 종류를 고른다(누적 비중). 한 종류면 r을 보지 않는다.</summary>
+        public int KindAt(float r)
+        {
+            if (Mix.Length == 1) return Mix[0].Kind;
+            float x = r * TotalWeight;
+            for (int i = 0; i < Mix.Length - 1; i++)
+            {
+                x -= Mix[i].Weight;
+                if (x < 0f) return Mix[i].Kind;
+            }
+            return Mix[Mix.Length - 1].Kind;
+        }
+    }
+
+    /// <summary>웨이브가 적을 놓는 방식.</summary>
+    public enum SpawnPattern
+    {
+        /// <summary>한 마리씩 스폰 원 위 아무 각도에 — 보통 적처럼 플레이어를 쫓는다.</summary>
+        Scatter = 0,
+        /// <summary>한 각도에 떼로 모여 나와, 나온 순간의 플레이어 쪽으로 곧게 돌진한다(쫓지 않음). 멀어지면 사라진다(처치 아님).</summary>
+        Swarm = 1,
+    }
+
+    /// <summary>시간대 스폰과 따로, 정해진 때마다 나오는 웨이브(정예 · 떼 돌진). StartSeconds부터 IntervalSeconds마다(0 = 한 번).</summary>
+    public readonly struct SpawnWaveData
+    {
+        /// <summary>EnemyRulesData.Kinds의 번호.</summary>
+        public readonly int Kind;
+        public readonly float StartSeconds;
+        public readonly float IntervalSeconds;
+        public readonly int Count;
+        public readonly SpawnPattern Pattern;
+        /// <summary>Swarm: 떼 안 적 사이 간격(유닛).</summary>
+        public readonly float Spacing;
+        /// <summary>Swarm: 돌진 속도 = 종류 이동 속도 × 이 값.</summary>
+        public readonly float SpeedScale;
+
+        public SpawnWaveData(int kind, float startSeconds, float intervalSeconds, int count, SpawnPattern pattern = SpawnPattern.Scatter, float spacing = 0f, float speedScale = 1f)
+        {
+            Kind = kind;
+            StartSeconds = startSeconds;
+            IntervalSeconds = intervalSeconds;
+            Count = count;
+            Pattern = pattern;
+            Spacing = spacing;
+            SpeedScale = speedScale;
+        }
+
+        /// <summary>Swarm 떼의 한 줄 폭(마리). 거의 정사각형으로 놓는다.</summary>
+        public int SwarmRowWidth => Math.Max(1, (int)Math.Ceiling(Math.Sqrt(Count)));
+
+        /// <summary>Swarm 떼가 스폰 원에서 뒤로 뻗는 길이(유닛).</summary>
+        public float SwarmDepth => Count <= 0 ? 0f : ((Count - 1) / SwarmRowWidth) * Spacing;
     }
 
     /// <summary>적 규칙 수치 전부(데이터 에셋 EnemyTable · SpawnTable에서 옮겨 온 값). 만들 때 한 번 검사 · 정렬한다.</summary>
@@ -47,6 +137,11 @@ namespace Myong.Core
     {
         /// <summary>적이 없는 규칙(이동만 볼 때).</summary>
         public static readonly EnemyRulesData None = new EnemyRulesData(new EnemyKindData[0], new SpawnPhaseData[0], 0f, 0, 0f);
+
+        /// <summary>웨이브(정예 · 떼 돌진). 비었으면 시간대 스폰만.</summary>
+        public readonly SpawnWaveData[] Waves;
+        /// <summary>돌진하는 적(Swarm)이 플레이어에게서 이만큼(유닛) 멀어지면 사라진다. 0 = 사라지지 않음.</summary>
+        public readonly float ChargeDespawnDistance;
 
         public readonly EnemyKindData[] Kinds;
         /// <summary>StartSeconds 오름차순.</summary>
@@ -61,7 +156,13 @@ namespace Myong.Core
         public readonly float MaxRadius;
 
         public EnemyRulesData(EnemyKindData[] kinds, SpawnPhaseData[] phases, float spawnRadius, int maxAlive, float separationPush)
+            : this(kinds, phases, spawnRadius, maxAlive, separationPush, new SpawnWaveData[0], 0f)
         {
+        }
+
+        public EnemyRulesData(EnemyKindData[] kinds, SpawnPhaseData[] phases, float spawnRadius, int maxAlive, float separationPush, SpawnWaveData[] waves, float chargeDespawnDistance)
+        {
+            if (waves == null) throw new ArgumentNullException(nameof(waves));
             if (kinds == null) throw new ArgumentNullException(nameof(kinds));
             if (phases == null) throw new ArgumentNullException(nameof(phases));
             if (maxAlive < 0) throw new ArgumentOutOfRangeException(nameof(maxAlive));
@@ -70,8 +171,19 @@ namespace Myong.Core
             Array.Sort(Phases, (a, b) => a.StartSeconds.CompareTo(b.StartSeconds));
             foreach (var phase in Phases)
             {
-                if (phase.Kind < 0 || phase.Kind >= Kinds.Length) throw new ArgumentOutOfRangeException(nameof(phases), "spawn phase refers to a missing enemy kind");
+                if (phase.Mix == null) throw new ArgumentException("spawn phase without enemy kinds", nameof(phases));
+                foreach (var w in phase.Mix)
+                {
+                    if (w.Kind < 0 || w.Kind >= Kinds.Length) throw new ArgumentOutOfRangeException(nameof(phases), "spawn phase refers to a missing enemy kind");
+                }
             }
+            Waves = (SpawnWaveData[])waves.Clone();
+            foreach (var wave in Waves)
+            {
+                if (wave.Kind < 0 || wave.Kind >= Kinds.Length) throw new ArgumentOutOfRangeException(nameof(waves), "spawn wave refers to a missing enemy kind");
+                if (wave.Count < 0 || wave.IntervalSeconds < 0f || wave.StartSeconds < 0f) throw new ArgumentOutOfRangeException(nameof(waves), "spawn wave count, start and interval must not be negative");
+            }
+            ChargeDespawnDistance = chargeDespawnDistance < 0f ? 0f : chargeDespawnDistance;
             SpawnRadius = spawnRadius;
             MaxAlive = maxAlive;
             SeparationPush = separationPush < 0f ? 0f : (separationPush > 1f ? 1f : separationPush);
@@ -110,6 +222,8 @@ namespace Myong.Core
         public bool Dead;
         /// <summary>마지막으로 탄에 맞은 틱(표시 쪽 번쩍임용). 맞은 적 없으면 NeverHit.</summary>
         public long LastHitTick;
+        /// <summary>돌진 속도(유닛/초). 0이면 플레이어를 쫓고, 아니면 이 방향으로 곧게 간다(Swarm 웨이브).</summary>
+        public Vec2 Charge;
     }
 
     /// <summary>

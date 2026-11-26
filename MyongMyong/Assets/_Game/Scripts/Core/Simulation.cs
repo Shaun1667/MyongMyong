@@ -57,6 +57,9 @@ namespace Myong.Core
         readonly ProgressionRules progression;
         readonly HealthRules health;
         readonly long survivalTicks;
+        // 웨이브마다 시작 틱 · 간격 틱(판 시작 전에 한 번 계산, Step 중 할당 없음).
+        readonly long[] waveStartTicks;
+        readonly long[] waveIntervalTicks;
 
         public Simulation(int ticksPerSecond, PlayerTuningData player)
             : this(ticksPerSecond, player, EnemyRulesData.None, WeaponRulesData.None)
@@ -98,6 +101,13 @@ namespace Myong.Core
             progression = new ProgressionRules(experience, upgrades, enemies, player, ticksPerSecond);
             health = new HealthRules(enemies, player, ticksPerSecond);
             survivalTicks = RunClock.TicksOf(run.SurvivalSeconds, ticksPerSecond);
+            waveStartTicks = new long[enemies.Waves.Length];
+            waveIntervalTicks = new long[enemies.Waves.Length];
+            for (int w = 0; w < enemies.Waves.Length; w++)
+            {
+                waveStartTicks[w] = RunClock.TicksOf(enemies.Waves[w].StartSeconds, ticksPerSecond);
+                waveIntervalTicks[w] = enemies.Waves[w].IntervalSeconds > 0f ? Math.Max(1L, RunClock.TicksOf(enemies.Waves[w].IntervalSeconds, ticksPerSecond)) : 0L;
+            }
         }
 
         public int TicksPerSecond { get; }
@@ -141,6 +151,8 @@ namespace Myong.Core
                 SpawnRandom = Rng.ForStream(seed, RandomStream.Spawn),
                 LevelUpRandom = Rng.ForStream(seed, RandomStream.LevelUp),
                 Enemies = new EnemyState[enemies.MaxAlive],
+                EnemiesSpawnedByKind = new long[enemies.Kinds.Length],
+                EnemiesKilledByKind = new long[enemies.Kinds.Length],
             };
             world.Player.Id = world.AllocateEntityId();
             world.Player.FacingX = Facing.Right;
@@ -173,7 +185,7 @@ namespace Myong.Core
 
         /// <summary>
         /// 순서: 플레이어 이동 → 적 추적 → 적끼리 밀어내기 → 적 접촉 피해(체력 0이면 그 틱에서 판 끝) → 발사(사거리 안 가장 가까운 적) → 탄 이동 · 맞기
-        /// → 젬 끌기 · 줍기(경험치 · 레벨) → 죽은 적 자리에 젬 떨어뜨리기 → 죽은 적 빼기 → 스폰(새 적 · 새 젬은 그 틱에는 움직이지 않는다)
+        /// → 젬 끌기 · 줍기(경험치 · 레벨) → 죽은 적 자리에 젬 떨어뜨리기 → 죽은 적 빼기 → 돌진하다 멀어진 적 빼기 → 스폰(시간대 비중 → 웨이브, 새 적 · 새 젬은 그 틱에는 움직이지 않는다)
         /// → 틱 + 1 → 생존 목표 틱에 닿았으면 승리(같은 틱에 체력 0이면 패배가 먼저).
         /// 레벨업 선택을 기다리는 동안(PendingLevelUps > 0)과 판이 끝난 뒤(IsOver)에는 아무것도 하지 않는다 — 틱도 멈춘다.
         /// </summary>
@@ -194,6 +206,7 @@ namespace Myong.Core
             progression.StepGems(world);
             progression.DropGems(world);
             WeaponRules.RemoveDeadEnemies(world);
+            RemoveEscapedEnemies(world);
             StepSpawning(world);
             world.Tick++;
             if (survivalTicks > 0 && world.Tick >= survivalTicks) HealthRules.EndRun(world, RunOutcome.Victory);
@@ -210,7 +223,7 @@ namespace Myong.Core
             else if (move.X < 0f) p.FacingX = Facing.Left;
         }
 
-        // 플레이어를 향해 직선으로. 다 왔으면 플레이어 자리에서 멈춘다.
+        // 플레이어를 향해 직선으로. 다 왔으면 플레이어 자리에서 멈춘다. 돌진하는 적(Charge)은 그 방향으로 곧게.
         void StepEnemies(World world)
         {
             Vec2 target = world.Player.Position;
@@ -219,6 +232,11 @@ namespace Myong.Core
             {
                 ref EnemyState e = ref list[i];
                 e.PreviousPosition = e.Position;
+                if (e.Charge.X != 0f || e.Charge.Y != 0f)
+                {
+                    e.Position = e.Position + e.Charge * TickSeconds;
+                    continue;
+                }
                 Vec2 to = target - e.Position;
                 float distance = to.Magnitude;
                 float step = enemies.Kinds[e.Kind].MoveSpeed * TickSeconds;
@@ -227,18 +245,110 @@ namespace Myong.Core
             separation.Apply(list, world.EnemyCount, enemies.Kinds, enemies.SeparationPush);
         }
 
-        // 시간대의 초당 마릿수만큼 몫을 쌓고 1이 될 때마다 한 마리. 가득 찼으면 그 몫은 버린다(나중에 몰아서 나오지 않게).
+        // 돌진하는 적이 플레이어에게서 ChargeDespawnDistance보다 멀어지면 뺀다(처치 아님 · 젬 없음). 빈자리는 맨 끝 적이 채운다.
+        void RemoveEscapedEnemies(World world)
+        {
+            float limit = enemies.ChargeDespawnDistance;
+            if (limit <= 0f) return;
+            float limit2 = limit * limit;
+            Vec2 player = world.Player.Position;
+            int i = 0;
+            while (i < world.EnemyCount)
+            {
+                ref EnemyState e = ref world.Enemies[i];
+                bool charging = e.Charge.X != 0f || e.Charge.Y != 0f;
+                if (!charging || (e.Position - player).SqrMagnitude <= limit2)
+                {
+                    i++;
+                    continue;
+                }
+                world.Enemies[i] = world.Enemies[world.EnemyCount - 1];
+                world.EnemyCount--;
+                world.EnemiesEscapedTotal++;
+            }
+        }
+
+        // 시간대의 초당 마릿수만큼 몫을 쌓고 1이 될 때마다 한 마리(종류는 시간대 비중대로). 가득 찼으면 그 몫은 버린다(나중에 몰아서 나오지 않게).
+        // 그 뒤 이 틱이 웨이브의 때면 웨이브를 낸다(표 순서대로).
         void StepSpawning(World world)
         {
             if (world.SpawningPaused) return;
             int phaseIndex = enemies.PhaseAt(ElapsedSeconds(world));
-            if (phaseIndex < 0) return;
-            SpawnPhaseData phase = enemies.Phases[phaseIndex];
-            world.SpawnBudget += phase.SpawnsPerSecond * TickSeconds;
-            while (world.SpawnBudget >= 1f)
+            if (phaseIndex >= 0)
             {
-                world.SpawnBudget -= 1f;
-                TrySpawn(world, phase.Kind);
+                SpawnPhaseData phase = enemies.Phases[phaseIndex];
+                world.SpawnBudget += phase.SpawnsPerSecond * TickSeconds;
+                while (world.SpawnBudget >= 1f)
+                {
+                    world.SpawnBudget -= 1f;
+                    if (world.EnemyCount >= world.Enemies.Length) continue;
+                    TrySpawn(world, PickKind(world, phase));
+                }
+            }
+            for (int w = 0; w < waveStartTicks.Length; w++)
+            {
+                if (WaveDue(w, world.Tick)) SpawnWave(world, enemies.Waves[w]);
+            }
+        }
+
+        bool WaveDue(int wave, long tick)
+        {
+            long start = waveStartTicks[wave];
+            if (tick < start) return false;
+            long interval = waveIntervalTicks[wave];
+            return interval <= 0 ? tick == start : (tick - start) % interval == 0;
+        }
+
+        /// <summary>이 틱에 웨이브 w가 나오는지(확인용).</summary>
+        public bool IsWaveTick(int wave, long tick) => wave >= 0 && wave < waveStartTicks.Length && WaveDue(wave, tick);
+
+        /// <summary>tick 뒤(포함) 웨이브 w가 처음 나오는 틱. 더 없으면 -1.</summary>
+        public long NextWaveTick(int wave, long tick)
+        {
+            if (wave < 0 || wave >= waveStartTicks.Length) return -1;
+            long start = waveStartTicks[wave];
+            if (tick <= start) return start;
+            long interval = waveIntervalTicks[wave];
+            if (interval <= 0) return -1;
+            long k = (tick - start + interval - 1) / interval;
+            return start + k * interval;
+        }
+
+        // 한 종류 시간대는 난수를 뽑지 않는다(섞기 전과 같은 수열).
+        int PickKind(World world, in SpawnPhaseData phase)
+        {
+            return phase.Mix.Length == 1 ? phase.Mix[0].Kind : phase.KindAt(world.SpawnRandom.NextFloat());
+        }
+
+        void SpawnWave(World world, in SpawnWaveData wave)
+        {
+            if (wave.Pattern == SpawnPattern.Swarm)
+            {
+                SpawnSwarm(world, wave);
+                return;
+            }
+            for (int i = 0; i < wave.Count; i++)
+            {
+                if (!TrySpawn(world, wave.Kind)) break;
+            }
+        }
+
+        // 한 각도(스폰 난수 하나)에 떼를 거의 정사각형으로 놓고, 모두 나온 순간의 플레이어 쪽으로 같은 속도로 돌진한다.
+        void SpawnSwarm(World world, in SpawnWaveData wave)
+        {
+            if (wave.Count <= 0 || world.EnemyCount >= world.Enemies.Length) return;
+            float angle = world.SpawnRandom.Range(0f, FullTurn);
+            Vec2 outward = new Vec2((float)Math.Cos(angle), (float)Math.Sin(angle));
+            Vec2 across = new Vec2(-outward.Y, outward.X);
+            Vec2 center = world.Player.Position + outward * enemies.SpawnRadius;
+            Vec2 charge = outward * -(enemies.Kinds[wave.Kind].MoveSpeed * wave.SpeedScale);
+            int width = wave.SwarmRowWidth;
+            for (int i = 0; i < wave.Count; i++)
+            {
+                float lateral = (i % width - (width - 1) * 0.5f) * wave.Spacing;
+                float back = (i / width) * wave.Spacing;
+                Vec2 position = center + across * lateral + outward * back;
+                if (!TrySpawnAt(world, wave.Kind, position, charge)) break;
             }
         }
 
@@ -247,7 +357,12 @@ namespace Myong.Core
             if (world.EnemyCount >= world.Enemies.Length) return false;
             float angle = world.SpawnRandom.Range(0f, FullTurn);
             Vec2 offset = new Vec2((float)Math.Cos(angle), (float)Math.Sin(angle)) * enemies.SpawnRadius;
-            Vec2 position = world.Player.Position + offset;
+            return TrySpawnAt(world, kind, world.Player.Position + offset, Vec2.Zero);
+        }
+
+        bool TrySpawnAt(World world, int kind, Vec2 position, Vec2 charge)
+        {
+            if (world.EnemyCount >= world.Enemies.Length) return false;
             world.Enemies[world.EnemyCount] = new EnemyState
             {
                 Id = world.AllocateEntityId(),
@@ -256,18 +371,34 @@ namespace Myong.Core
                 PreviousPosition = position,
                 Health = enemies.Kinds[kind].MaxHealth,
                 LastHitTick = EnemyState.NeverHit,
+                Charge = charge,
             };
             world.EnemyCount++;
             world.EnemiesSpawnedTotal++;
+            if (kind < world.EnemiesSpawnedByKind.Length) world.EnemiesSpawnedByKind[kind]++;
             return true;
         }
 
-        /// <summary>지금 남은 자리만큼 count마리를 바로 스폰(디버그 · 나중의 이벤트). 종류는 지금 시간대의 것(첫 시간대 전이면 첫 시간대). 스폰한 수를 돌려준다.</summary>
+        /// <summary>지금 남은 자리만큼 count마리를 바로 스폰(디버그 · 나중의 이벤트). 종류는 지금 시간대의 비중대로(첫 시간대 전이면 첫 시간대). 스폰한 수를 돌려준다.</summary>
         public int SpawnEnemies(World world, int count)
         {
             if (enemies.Phases.Length == 0) return 0;
             int phaseIndex = Math.Max(0, enemies.PhaseAt(ElapsedSeconds(world)));
-            int kind = enemies.Phases[phaseIndex].Kind;
+            SpawnPhaseData phase = enemies.Phases[phaseIndex];
+            int spawned = 0;
+            for (int i = 0; i < count; i++)
+            {
+                if (world.EnemyCount >= world.Enemies.Length) break;
+                if (!TrySpawn(world, PickKind(world, phase))) break;
+                spawned++;
+            }
+            return spawned;
+        }
+
+        /// <summary>종류를 정해 count마리를 바로 스폰(디버그). 스폰 원 위 아무 각도, 플레이어를 쫓는다. 없는 종류면 0.</summary>
+        public int SpawnEnemies(World world, int count, int kind)
+        {
+            if (kind < 0 || kind >= enemies.Kinds.Length) return 0;
             int spawned = 0;
             for (int i = 0; i < count; i++)
             {
@@ -275,6 +406,14 @@ namespace Myong.Core
                 spawned++;
             }
             return spawned;
+        }
+
+        /// <summary>웨이브 w를 지금 바로 낸다(디버그). 없는 웨이브면 false.</summary>
+        public bool SpawnWaveNow(World world, int wave)
+        {
+            if (wave < 0 || wave >= enemies.Waves.Length) return false;
+            SpawnWave(world, enemies.Waves[wave]);
+            return true;
         }
 
         /// <summary>적을 모두 없앤다(디버그). ID는 되돌리지 않는다 — 새 적은 새 ID.</summary>

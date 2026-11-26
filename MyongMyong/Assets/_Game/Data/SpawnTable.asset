@@ -16,14 +16,50 @@ MonoBehaviour:
   - startSeconds: 0
     spawnsPerSecond: 1.5
     enemyId: basic
+    mix: []
   - startSeconds: 60
     spawnsPerSecond: 2
     enemyId: basic
+    mix:
+    - enemyId: basic
+      weight: 3
+    - enemyId: runner
+      weight: 1
   - startSeconds: 180
     spawnsPerSecond: 4
     enemyId: basic
+    mix:
+    - enemyId: basic
+      weight: 5
+    - enemyId: runner
+      weight: 3
+    - enemyId: brute
+      weight: 2
   - startSeconds: 300
     spawnsPerSecond: 8
     enemyId: basic
+    mix:
+    - enemyId: basic
+      weight: 4
+    - enemyId: runner
+      weight: 3
+    - enemyId: brute
+      weight: 3
+  waves:
+  - enemyId: elite
+    startSeconds: 120
+    intervalSeconds: 60
+    count: 1
+    pattern: 0
+    spacing: 0
+    speedScale: 1
+  - enemyId: runner
+    startSeconds: 150
+    intervalSeconds: 45
+    count: 9
+    pattern: 1
+    spacing: 0.6
+    speedScale: 1.6
   spawnRadius: 18
   maxAlive: 300
+  chargeDespawnDistance: 24

@@ -28,6 +28,8 @@ namespace Myong.Editor
         Vector2 teleportTarget;
         int seedInput;
         int spawnCount = 200;
+        int kindSpawnCount = 10;
+        int kindToSpawn;
         int experienceAmount = 5;
         float damageAmount = 10f;
         float skipBeforeGoalSeconds = 10f;
@@ -218,16 +220,58 @@ namespace Myong.Editor
 
         void DrawEnemies(GameRoot root)
         {
-            EditorGUILayout.LabelField("살아 있는 수", $"{root.DebugEnemyCount} / {root.DebugEnemyCapacity}");
-            EditorGUILayout.LabelField("스폰 누계", root.DebugEnemiesSpawnedTotal.ToString());
+            EditorGUILayout.LabelField("살아 있는 수", $"{root.DebugEnemyCount} / {root.DebugEnemyCapacity}  (돌진 중 {root.DebugChargingCount})");
+            EditorGUILayout.LabelField("스폰 누계", $"{root.DebugEnemiesSpawnedTotal} · 돌진하다 사라짐 {root.DebugEnemiesEscapedTotal}");
             EditorGUILayout.LabelField("경과 시간", $"{root.DebugElapsedSeconds:0.0}초");
             EditorGUILayout.LabelField("시간대 스폰", root.DebugSpawningPaused ? "멈춤" : "돌아감");
+            int phaseIndex = root.DebugPhaseIndex;
+            if (phaseIndex >= 0)
+            {
+                SpawnPhaseData phase = root.DebugPhase(phaseIndex);
+                var mix = new System.Text.StringBuilder();
+                foreach (var w in phase.Mix)
+                {
+                    if (mix.Length > 0) mix.Append(" · ");
+                    mix.Append($"{root.DebugEnemyKindId(w.Kind)} {w.Weight / phase.TotalWeight * 100f:0}%");
+                }
+                EditorGUILayout.LabelField("지금 시간대", $"{phaseIndex} ({phase.StartSeconds:0}초부터) 초당 {phase.SpawnsPerSecond:0.##}마리 — {mix}");
+            }
+            for (int w = 0; w < root.DebugWaveCount; w++)
+            {
+                SpawnWaveData wave = root.DebugWave(w);
+                long next = root.DebugNextWaveTick(w);
+                string when = next < 0 ? "끝" : $"틱 {next} ({next / 60f:0.0}초)";
+                using (new EditorGUILayout.HorizontalScope())
+                {
+                    EditorGUILayout.LabelField($"웨이브 {w}", $"{root.DebugEnemyKindId(wave.Kind)} ×{wave.Count} {wave.Pattern} · {wave.StartSeconds:0}초부터 {wave.IntervalSeconds:0}초마다 · 다음 {when}");
+                    if (GUILayout.Button(StateChange + "지금", GUILayout.Width(110f))) root.DebugSpawnWaveNow(w);
+                }
+            }
             EditorGUILayout.LabelField("프레임 / 시뮬레이션", $"{root.DebugFrameMilliseconds:0.00} ms (평균) / {root.DebugStepMilliseconds:0.000} ms");
+
+            // 종류별: 지금 수 · 스폰 누계 · 처치 누계
+            int kinds = root.DebugEnemyKindCount;
+            var names = new string[kinds];
+            for (int k = 0; k < kinds; k++)
+            {
+                names[k] = root.DebugEnemyKindId(k);
+                EditorGUILayout.LabelField($"  {names[k]}", $"지금 {root.DebugAliveOfKind(k)} · 스폰 {root.DebugSpawnedOfKind(k)} · 처치 {root.DebugKilledOfKind(k)}");
+            }
+            EditorGUILayout.LabelField("큰 젬(화면)", root.DebugBigGemsShown.ToString());
+            if (kinds > 0)
+            {
+                using (new EditorGUILayout.HorizontalScope())
+                {
+                    kindToSpawn = Mathf.Clamp(EditorGUILayout.Popup("종류", kindToSpawn, names), 0, kinds - 1);
+                    kindSpawnCount = Mathf.Max(1, EditorGUILayout.IntField(kindSpawnCount, GUILayout.Width(60f)));
+                    if (GUILayout.Button(StateChange + "이 종류 소환")) root.DebugSpawnEnemiesOfKind(kindToSpawn, kindSpawnCount);
+                }
+            }
 
             using (new EditorGUILayout.HorizontalScope())
             {
                 spawnCount = Mathf.Max(1, EditorGUILayout.IntField("마릿수", spawnCount));
-                if (GUILayout.Button(StateChange + "지금 스폰")) root.DebugSpawnEnemies(spawnCount);
+                if (GUILayout.Button(StateChange + "지금 스폰 (시간대 비중)")) root.DebugSpawnEnemies(spawnCount);
             }
             if (GUILayout.Button(StateChange + "모두 제거")) root.DebugClearEnemies();
             bool paused = root.DebugSpawningPaused;

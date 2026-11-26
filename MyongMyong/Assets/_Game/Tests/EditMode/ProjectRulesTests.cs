@@ -77,7 +77,19 @@ namespace Myong.Tests
             Assert.IsNotNull(spawn);
             Assert.IsNotEmpty(spawn.Phases);
             Assert.Greater(spawn.MaxAlive, 0);
-            foreach (var phase in spawn.Phases) Assert.GreaterOrEqual(enemies.IndexOf(phase.enemyId), 0, "unknown enemy id " + phase.enemyId);
+            foreach (var phase in spawn.Phases)
+            {
+                foreach (var (enemyId, weight) in SpawnTable.EntriesOf(phase))
+                {
+                    Assert.GreaterOrEqual(enemies.IndexOf(enemyId), 0, "unknown enemy id " + enemyId);
+                    Assert.Greater(weight, 0f, "spawn weight: " + enemyId);
+                }
+            }
+            foreach (var wave in spawn.Waves)
+            {
+                Assert.GreaterOrEqual(enemies.IndexOf(wave.enemyId), 0, "unknown wave enemy id " + wave.enemyId);
+                Assert.Greater(wave.count, 0, "wave count: " + wave.enemyId);
+            }
 
             // 화면 대각선 절반 + 가장 큰 몸보다 멀어야 화면 밖에서 나타난다.
             float halfWidth = PixelArt.ReferenceWidth / (2f * PixelArt.PixelsPerUnit);
@@ -89,6 +101,35 @@ namespace Myong.Tests
             var rules = spawn.ToRules(enemies);
             Assert.AreEqual(spawn.Phases.Count, rules.Phases.Length);
         }
+
+        [Test]
+        public void SpawnTable_FirstPhaseIsTheConfirmedOne_AndChargersLeaveOffScreen()
+        {
+            var enemies = AssetDatabase.LoadAssetAtPath<EnemyTable>("Assets/_Game/Data/EnemyTable.asset");
+            var spawn = AssetDatabase.LoadAssetAtPath<SpawnTable>("Assets/_Game/Data/SpawnTable.asset");
+            var rules = spawn.ToRules(enemies);
+
+            // 첫 시간대 = 0초부터 초당 1.5마리 basic만(사용자 확정 2026-11-25).
+            Assert.AreEqual(0f, rules.Phases[0].StartSeconds);
+            Assert.AreEqual(1.5f, rules.Phases[0].SpawnsPerSecond, 0.0001f);
+            Assert.AreEqual(1, rules.Phases[0].Mix.Length);
+            Assert.AreEqual(enemies.IndexOf("basic"), rules.Phases[0].Kind);
+
+            // 돌진하는 떼는 나오자마자 사라지지 않고(떼 끝 줄보다 멀리서 사라짐), 사라지는 곳은 화면 밖.
+            float halfWidth = PixelArt.ReferenceWidth / (2f * PixelArt.PixelsPerUnit);
+            float halfHeight = PixelArt.ReferenceHeight / (2f * PixelArt.PixelsPerUnit);
+            float halfDiagonal = (float)System.Math.Sqrt(halfWidth * halfWidth + halfHeight * halfHeight);
+            foreach (var wave in rules.Waves)
+            {
+                if (wave.Pattern != Myong.Core.SpawnPattern.Swarm) continue;
+                float r = rules.Kinds[wave.Kind].Radius;
+                float farthest = (float)System.Math.Sqrt(System.Math.Pow(rules.SpawnRadius + wave.SwarmDepth, 2) + System.Math.Pow(wave.SwarmRowWidth * wave.Spacing, 2)) + r;
+                Assert.Greater(rules.ChargeDespawnDistance, farthest, "a charging pack would vanish as it spawns");
+                Assert.Greater(rules.ChargeDespawnDistance, halfDiagonal + r, "charging enemies would vanish on screen");
+                Assert.Greater(wave.SpeedScale, 0f);
+            }
+        }
+
 
 [Test]
         public void WeaponTable_Exists_AndRowsAreValid()

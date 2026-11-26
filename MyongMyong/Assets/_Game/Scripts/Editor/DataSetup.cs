@@ -38,14 +38,32 @@ namespace Myong.Editor
 
         // 적 · 스폰 첫 값 (BALANCE.md와 같은 값. 기준은 에셋)
         const string InitialEnemyId = "basic";
-        const float InitialEnemyMoveSpeed = 1.8f;
-        const float InitialEnemyRadius = 0.3f;
-        const float InitialEnemyMaxHealth = 10f;
-        const string InitialEnemyVisualId = "enemy_basic";
         const float InitialSeparationPush = 0.5f;
         const float InitialSpawnRadius = 18f;
         const int InitialMaxAlive = 300;
-        static readonly (float start, float perSecond)[] InitialPhases = { (0f, 1.5f), (60f, 2f), (180f, 4f), (300f, 8f) };
+        const float InitialChargeDespawnDistance = 24f;
+        // id · 이동 속도 · 반지름 · 체력 · 경험치 · 접촉 피해 · 비주얼 ID (1-8에서 runner · brute · elite)
+        public static readonly (string id, float moveSpeed, float radius, float maxHealth, int experience, float contactDamage, string visualId)[] InitialEnemies =
+        {
+            (InitialEnemyId, 1.8f, 0.3f, 10f, 1, 10f, "enemy_basic"),
+            ("runner", 3f, 0.22f, 5f, 1, 5f, "enemy_runner"),
+            ("brute", 1.1f, 0.42f, 35f, 3, 15f, "enemy_brute"),
+            ("elite", 1.4f, 0.75f, 220f, 20, 20f, "enemy_elite"),
+        };
+        // 시작 초 · 초당 마릿수 · 종류 비중(비면 basic만). 첫 시간대 1.5마리/초 basic은 사용자 확정(2026-11-25).
+        public static readonly (float start, float perSecond, (string id, float weight)[] mix)[] InitialPhases =
+        {
+            (0f, 1.5f, new (string, float)[0]),
+            (60f, 2f, new[] { (InitialEnemyId, 3f), ("runner", 1f) }),
+            (180f, 4f, new[] { (InitialEnemyId, 5f), ("runner", 3f), ("brute", 2f) }),
+            (300f, 8f, new[] { (InitialEnemyId, 4f), ("runner", 3f), ("brute", 3f) }),
+        };
+        // 웨이브: 적 · 시작 초 · 간격 초 · 마릿수 · 방식 · 간격(유닛) · 돌진 속도 배수
+        public static readonly (string id, float start, float interval, int count, Myong.Core.SpawnPattern pattern, float spacing, float speedScale)[] InitialWaves =
+        {
+            ("elite", 120f, 60f, 1, Myong.Core.SpawnPattern.Scatter, 0f, 1f),
+            ("runner", 150f, 45f, 9, Myong.Core.SpawnPattern.Swarm, 0.6f, 1.6f),
+        };
 
         // 무기 첫 값 (BALANCE.md와 같은 값. 기준은 에셋)
         const string InitialWeaponId = "girl_gun";
@@ -62,13 +80,11 @@ namespace Myong.Editor
 
         // 경험치 · 강화 첫 값 (BALANCE.md와 같은 값. 기준은 에셋)
         const float InitialPickupRadius = 2.5f;
-        const int InitialEnemyExperience = 1;
 
         // 체력 · 접촉 피해 첫 값 (BALANCE.md와 같은 값. 기준은 에셋)
         const float InitialMaxHealth = 100f;
         const float InitialBodyRadius = 0.35f;
         const float InitialHurtInvulnerableSeconds = 0.5f;
-        const float InitialEnemyContactDamage = 10f;
         static readonly int[] InitialExperienceToNext = { 5, 10, 15, 20, 26, 32, 38, 45, 52, 60 };
         const int InitialExtraPerLevel = 8;
         const int InitialMaxGems = 400;
@@ -120,15 +136,8 @@ namespace Myong.Editor
                 var asset = ScriptableObject.CreateInstance<EnemyTable>();
                 var so = new SerializedObject(asset);
                 var rows = so.FindProperty("rows");
-                rows.arraySize = 1;
-                var row = rows.GetArrayElementAtIndex(0);
-                row.FindPropertyRelative("id").stringValue = InitialEnemyId;
-                row.FindPropertyRelative("moveSpeed").floatValue = InitialEnemyMoveSpeed;
-                row.FindPropertyRelative("radius").floatValue = InitialEnemyRadius;
-                row.FindPropertyRelative("maxHealth").floatValue = InitialEnemyMaxHealth;
-                row.FindPropertyRelative("experience").intValue = InitialEnemyExperience;
-                row.FindPropertyRelative("contactDamage").floatValue = InitialEnemyContactDamage;
-                row.FindPropertyRelative("visualId").stringValue = InitialEnemyVisualId;
+                rows.arraySize = InitialEnemies.Length;
+                for (int i = 0; i < InitialEnemies.Length; i++) WriteEnemyRow(rows.GetArrayElementAtIndex(i), InitialEnemies[i]);
                 so.FindProperty("separationPush").floatValue = InitialSeparationPush;
                 so.ApplyModifiedPropertiesWithoutUndo();
                 AssetDatabase.CreateAsset(asset, EnemyTablePath);
@@ -138,15 +147,7 @@ namespace Myong.Editor
             {
                 var asset = ScriptableObject.CreateInstance<SpawnTable>();
                 var so = new SerializedObject(asset);
-                var phases = so.FindProperty("phases");
-                phases.arraySize = InitialPhases.Length;
-                for (int i = 0; i < InitialPhases.Length; i++)
-                {
-                    var phase = phases.GetArrayElementAtIndex(i);
-                    phase.FindPropertyRelative("startSeconds").floatValue = InitialPhases[i].start;
-                    phase.FindPropertyRelative("spawnsPerSecond").floatValue = InitialPhases[i].perSecond;
-                    phase.FindPropertyRelative("enemyId").stringValue = InitialEnemyId;
-                }
+                WriteSpawnPhasesAndWaves(so);
                 so.FindProperty("spawnRadius").floatValue = InitialSpawnRadius;
                 so.FindProperty("maxAlive").intValue = InitialMaxAlive;
                 so.ApplyModifiedPropertiesWithoutUndo();
@@ -243,5 +244,55 @@ if (AssetDatabase.LoadAssetAtPath<WeaponTable>(WeaponTablePath) == null)
 
             AssetDatabase.SaveAssets();
         }
-    }
+    
+
+        /// <summary>적 표 한 줄에 첫 값을 쓴다.</summary>
+        public static void WriteEnemyRow(SerializedProperty row, (string id, float moveSpeed, float radius, float maxHealth, int experience, float contactDamage, string visualId) e)
+        {
+            row.FindPropertyRelative("id").stringValue = e.id;
+            row.FindPropertyRelative("moveSpeed").floatValue = e.moveSpeed;
+            row.FindPropertyRelative("radius").floatValue = e.radius;
+            row.FindPropertyRelative("maxHealth").floatValue = e.maxHealth;
+            row.FindPropertyRelative("experience").intValue = e.experience;
+            row.FindPropertyRelative("contactDamage").floatValue = e.contactDamage;
+            row.FindPropertyRelative("visualId").stringValue = e.visualId;
+        }
+
+        /// <summary>스폰 표의 시간대 · 웨이브 · 돌진 사라지는 거리에 첫 값을 쓴다(스폰 반경 · 최대 수는 건드리지 않음).</summary>
+        public static void WriteSpawnPhasesAndWaves(SerializedObject so)
+        {
+            var phases = so.FindProperty("phases");
+            phases.arraySize = InitialPhases.Length;
+            for (int i = 0; i < InitialPhases.Length; i++)
+            {
+                var phase = phases.GetArrayElementAtIndex(i);
+                phase.FindPropertyRelative("startSeconds").floatValue = InitialPhases[i].start;
+                phase.FindPropertyRelative("spawnsPerSecond").floatValue = InitialPhases[i].perSecond;
+                phase.FindPropertyRelative("enemyId").stringValue = InitialEnemyId;
+                var mix = phase.FindPropertyRelative("mix");
+                mix.arraySize = InitialPhases[i].mix.Length;
+                for (int m = 0; m < InitialPhases[i].mix.Length; m++)
+                {
+                    var entry = mix.GetArrayElementAtIndex(m);
+                    entry.FindPropertyRelative("enemyId").stringValue = InitialPhases[i].mix[m].id;
+                    entry.FindPropertyRelative("weight").floatValue = InitialPhases[i].mix[m].weight;
+                }
+            }
+            var waves = so.FindProperty("waves");
+            waves.arraySize = InitialWaves.Length;
+            for (int i = 0; i < InitialWaves.Length; i++)
+            {
+                var w = InitialWaves[i];
+                var wave = waves.GetArrayElementAtIndex(i);
+                wave.FindPropertyRelative("enemyId").stringValue = w.id;
+                wave.FindPropertyRelative("startSeconds").floatValue = w.start;
+                wave.FindPropertyRelative("intervalSeconds").floatValue = w.interval;
+                wave.FindPropertyRelative("count").intValue = w.count;
+                wave.FindPropertyRelative("pattern").intValue = (int)w.pattern;
+                wave.FindPropertyRelative("spacing").floatValue = w.spacing;
+                wave.FindPropertyRelative("speedScale").floatValue = w.speedScale;
+            }
+            so.FindProperty("chargeDespawnDistance").floatValue = InitialChargeDespawnDistance;
+        }
+}
 }

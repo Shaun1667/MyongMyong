@@ -175,6 +175,71 @@ namespace Myong.Unity
             return simulation.SpawnEnemies(world, count);
         }
 
+        /// <summary>적 종류 수(EnemyTable 줄 수).</summary>
+        public int DebugEnemyKindCount => world.EnemiesSpawnedByKind.Length;
+
+        /// <summary>적 종류의 표 id(없으면 빈 문자열).</summary>
+        public string DebugEnemyKindId(int kind) => enemyTable != null && kind >= 0 && kind < enemyTable.Rows.Count ? enemyTable.Rows[kind].id : string.Empty;
+
+        /// <summary>지금 살아 있는 그 종류의 수(디버그용으로 세어 본다).</summary>
+        public int DebugAliveOfKind(int kind)
+        {
+            int n = 0;
+            for (int i = 0; i < world.EnemyCount; i++)
+            {
+                if (world.Enemies[i].Kind == kind) n++;
+            }
+            return n;
+        }
+
+        /// <summary>지금 돌진 중인 적 수.</summary>
+        public int DebugChargingCount
+        {
+            get
+            {
+                int n = 0;
+                for (int i = 0; i < world.EnemyCount; i++)
+                {
+                    if (world.Enemies[i].Charge.X != 0f || world.Enemies[i].Charge.Y != 0f) n++;
+                }
+                return n;
+            }
+        }
+
+        public long DebugSpawnedOfKind(int kind) => kind >= 0 && kind < world.EnemiesSpawnedByKind.Length ? world.EnemiesSpawnedByKind[kind] : 0;
+
+        public long DebugKilledOfKind(int kind) => kind >= 0 && kind < world.EnemiesKilledByKind.Length ? world.EnemiesKilledByKind[kind] : 0;
+
+        /// <summary>돌진하다 멀어져 사라진 적 누계.</summary>
+        public long DebugEnemiesEscapedTotal => world.EnemiesEscapedTotal;
+
+        /// <summary>지금 시간대 번호(첫 시간대 전 -1) · 그 시간대.</summary>
+        public int DebugPhaseIndex => simulation.Enemies.PhaseAt(simulation.ElapsedSeconds(world));
+
+        public SpawnPhaseData DebugPhase(int index) => simulation.Enemies.Phases[index];
+
+        public int DebugWaveCount => simulation.Enemies.Waves.Length;
+
+        public SpawnWaveData DebugWave(int index) => simulation.Enemies.Waves[index];
+
+        /// <summary>웨이브 w가 다음에 나오는 틱(지금 틱 포함). 더 없으면 -1.</summary>
+        public long DebugNextWaveTick(int wave) => simulation.NextWaveTick(wave, world.Tick);
+
+        /// <summary>지난 프레임에 크게 그린 젬 수(정예의 젬, 표시 확인용).</summary>
+        public int DebugBigGemsShown => gemView != null ? gemView.BigShownCount : 0;
+
+        /// <summary>[상태 변경] 종류를 골라 count마리를 바로 소환(스폰 원 위, 쫓아옴). 스폰한 수를 돌려준다.</summary>
+        public int DebugSpawnEnemiesOfKind(int kind, int count)
+        {
+            return simulation.SpawnEnemies(world, count, kind);
+        }
+
+        /// <summary>[상태 변경] 웨이브 w를 지금 바로(떼 돌진 · 정예 확인용).</summary>
+        public bool DebugSpawnWaveNow(int wave)
+        {
+            return simulation.SpawnWaveNow(world, wave);
+        }
+
         /// <summary>[상태 변경] 적 모두 제거.</summary>
         public void DebugClearEnemies()
         {

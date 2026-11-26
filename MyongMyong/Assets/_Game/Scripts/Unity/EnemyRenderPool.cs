@@ -18,6 +18,8 @@ namespace Myong.Unity
             public Sprite sprite;
             [Tooltip("White silhouette shown right after a hit. Empty: no flash for this sprite.")]
             public Sprite flashSprite;
+            [Tooltip("With no sprite: colour of the placeholder disc. Alpha 0 = colour picked from the visual id.")]
+            public Color placeholderColor = new Color(0f, 0f, 0f, 0f);
         }
 
         [SerializeField] Material spriteMaterial;
@@ -108,14 +110,18 @@ namespace Myong.Unity
 
         Sprite SpriteFor(EnemyTable.Row row, bool flash)
         {
+            Color? color = null;
             foreach (var entry in visuals)
             {
-                if (entry.visualId == row.visualId && entry.sprite != null) return flash ? entry.flashSprite : entry.sprite;
+                if (entry.visualId != row.visualId) continue;
+                if (entry.sprite != null) return flash ? entry.flashSprite : entry.sprite;
+                if (entry.placeholderColor.a > 0f) color = entry.placeholderColor;
             }
-            string key = (flash ? "flash:" : "") + (row.visualId ?? string.Empty);
+            // 같은 비주얼이라도 반지름이 다르면 다른 그림(크기로 구분).
+            string key = (flash ? "flash:" : "") + (row.visualId ?? string.Empty) + "@" + row.radius.ToString("R", System.Globalization.CultureInfo.InvariantCulture);
             if (!placeholders.TryGetValue(key, out Sprite sprite))
             {
-                sprite = PlaceholderShapes.Disc(row.visualId ?? string.Empty, row.radius, flash);
+                sprite = PlaceholderShapes.Disc(row.visualId ?? string.Empty, row.radius, flash, color);
                 placeholders.Add(key, sprite);
             }
             return sprite;
@@ -154,14 +160,15 @@ namespace Myong.Unity
         static readonly Color32 Flash = new Color32(0xFF, 0xFF, 0xFF, 0xFF);
 
         /// <summary>반지름(유닛)만 한 원. 1도트 어두운 테두리 + 눈 두 개(앞이 어디인지 보이게). flash면 같은 모양을 온통 흰색으로.</summary>
-        public static Sprite Disc(string visualId, float radiusUnits, bool flash = false)
+        public static Sprite Disc(string visualId, float radiusUnits, bool flash = false, Color? color = null)
         {
             int radiusDots = Mathf.Max(MinDiameter / 2, Mathf.RoundToInt(radiusUnits * PixelArt.PixelsPerUnit));
             int diameter = radiusDots * 2;
             int size = Mathf.Max(Unit, Mathf.CeilToInt(diameter / (float)Unit) * Unit);
             float center = size / 2f;
 
-            Color fill = Color.HSVToRGB(Hue(visualId, HueStart, HueSpan), Saturation, Value);
+            Color fill = color ?? Color.HSVToRGB(Hue(visualId, HueStart, HueSpan), Saturation, Value);
+            fill.a = 1f;
             Color outline = fill * OutlineShade;
             outline.a = 1f;
 

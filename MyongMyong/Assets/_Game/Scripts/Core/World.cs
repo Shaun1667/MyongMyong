@@ -50,6 +50,11 @@ namespace Myong.Core
 
         /// <summary>이 판에서 처치한 적의 누계.</summary>
         public long EnemiesKilledTotal;
+        /// <summary>종류마다(EnemyRulesData.Kinds의 번호) 스폰 · 처치 누계. 판 시작 때 종류 수만큼 만든다.</summary>
+        public long[] EnemiesSpawnedByKind = new long[0];
+        public long[] EnemiesKilledByKind = new long[0];
+        /// <summary>돌진하다 멀어져 사라진 적의 누계(처치 아님).</summary>
+        public long EnemiesEscapedTotal;
         /// <summary>적이 피해를 받지 않는지(디버그). 탄은 맞고 사라지지만 체력이 줄지 않는다.</summary>
         public bool EnemiesInvincible;
 

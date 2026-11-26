@@ -339,6 +339,7 @@ namespace Myong.Core
                 {
                     e.Dead = true;
                     world.EnemiesKilledTotal++;
+                    if (e.Kind < world.EnemiesKilledByKind.Length) world.EnemiesKilledByKind[e.Kind]++;
                 }
                 world.BulletHitIds[bulletIndex * world.BulletHitStride + b.HitCount] = e.Id;
                 b.HitCount++;

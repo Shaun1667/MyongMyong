@@ -33,6 +33,15 @@ namespace Myong.Editor
         const int GemSortingOrder = -2; // 바닥 위, 적 뒤
         const int HealthBarSortingOrder = 5; // 플레이어 · 적 · 탄 앞
         const float GemPlaceholderRadius = 0.09f; // 지름 6도트 단색 도트(표시만)
+        const int BigGemValue = 10; // 이 값 이상의 젬은 큰 도트(정예의 젬, 표시만)
+        const float BigGemPlaceholderRadius = 0.16f; // 지름 약 10도트
+        // 그림이 없는 적 비주얼의 단색 원 색(표시만). 없는 id는 id 해시 색(enemy_basic = 분홍).
+        static readonly (string visualId, Color32 color)[] EnemyPlaceholderColors =
+        {
+            ("enemy_runner", new Color32(0xF0, 0x8A, 0x3C, 0xFF)), // 주황 — 빠르고 약한 적
+            ("enemy_brute", new Color32(0x6E, 0x56, 0xC8, 0xFF)), // 남보라 — 느리고 단단한 적
+            ("enemy_elite", new Color32(0xD2, 0x3C, 0x46, 0xFF)), // 진홍 — 정예
+        };
         const int GroundTileDots = 64;
         const int GroundCellDots = 32;
         const int HudFontSize = 20;
@@ -113,6 +122,27 @@ namespace Myong.Editor
             var enemyPool = GetOrAdd<EnemyRenderPool>(enemiesObject);
             SetupUtil.SetReference(enemyPool, "spriteMaterial", material);
             SetupUtil.SetInt(enemyPool, "sortingOrder", EnemySortingOrder);
+            var enemySo = new SerializedObject(enemyPool);
+            var visuals = enemySo.FindProperty("visuals");
+            foreach (var (visualId, color) in EnemyPlaceholderColors)
+            {
+                SerializedProperty entry = null;
+                for (int i = 0; i < visuals.arraySize; i++)
+                {
+                    var e = visuals.GetArrayElementAtIndex(i);
+                    if (e.FindPropertyRelative("visualId").stringValue == visualId) { entry = e; break; }
+                }
+                if (entry == null)
+                {
+                    visuals.arraySize++;
+                    entry = visuals.GetArrayElementAtIndex(visuals.arraySize - 1);
+                    entry.FindPropertyRelative("visualId").stringValue = visualId;
+                    entry.FindPropertyRelative("sprite").objectReferenceValue = null;
+                    entry.FindPropertyRelative("flashSprite").objectReferenceValue = null;
+                }
+                entry.FindPropertyRelative("placeholderColor").colorValue = color;
+            }
+            enemySo.ApplyModifiedPropertiesWithoutUndo();
 
             // 탄 렌더러 풀 (렌더러는 Play 때 GameRoot가 탄 최대 수만큼 미리 만든다)
             var bulletsObject = FindOrCreate(scene, "Bullets");
@@ -127,6 +157,8 @@ namespace Myong.Editor
             SetupUtil.SetInt(gemPool, "sortingOrder", GemSortingOrder);
             var gemSo = new SerializedObject(gemPool);
             gemSo.FindProperty("placeholderRadius").floatValue = GemPlaceholderRadius;
+            gemSo.FindProperty("bigGemValue").intValue = BigGemValue;
+            gemSo.FindProperty("bigPlaceholderRadius").floatValue = BigGemPlaceholderRadius;
             gemSo.ApplyModifiedPropertiesWithoutUndo();
 
             // 플레이어 체력 바 (머리 위, 리그와 따로 있는 오브젝트 — 조각은 Play 때 만든다)
