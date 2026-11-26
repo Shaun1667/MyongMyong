@@ -25,6 +25,12 @@ namespace Myong.Unity
             [Min(0f)] public float contactDamage;
             [Tooltip("Visual key. With no sprite for it, a solid placeholder shape is drawn.")]
             public string visualId;
+            [Tooltip("Untouchable body: bullets do not aim at it and pass through (health never drops), and it does not push or get pushed by other enemies. For the end-of-run enemy.")]
+            public bool invulnerable;
+            [Tooltip("Touching it kills the player at once, whatever the invulnerability after a hit or damage reduction (only the debug player invincibility stops it). For the end-of-run enemy.")]
+            public bool lethalContact;
+            [Tooltip("Text table key of the enemy's name, shown when it appears (empty = no name shown).")]
+            public string nameKey;
         }
 
         [SerializeField] List<Row> rows = new List<Row>();

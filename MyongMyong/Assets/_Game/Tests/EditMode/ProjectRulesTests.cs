@@ -38,12 +38,13 @@ namespace Myong.Tests
             Assert.AreEqual(asset.BodyRadius, data.Radius);
             Assert.AreEqual(asset.HurtInvulnerableSeconds, data.HurtInvulnerableSeconds);
 
-            // 적 한 마리가 한 번에 죽이지 않는다(맞고 피할 틈이 있다).
+            // 적 한 마리가 한 번에 죽이지 않는다(맞고 피할 틈이 있다). 단 30분 마무리 적(닿으면 즉사)은 일부러 예외 — 목표 뒤에만 나오는지는 FinaleTests가 본다(1-11).
             var enemies = AssetDatabase.LoadAssetAtPath<EnemyTable>("Assets/_Game/Data/EnemyTable.asset");
             Assert.IsTrue(enemies.Rows.Any(r => r.contactDamage > 0f), "no enemy deals contact damage");
             foreach (var row in enemies.Rows)
             {
                 Assert.GreaterOrEqual(row.contactDamage, 0f, row.id);
+                if (row.lethalContact) continue;
                 Assert.Less(row.contactDamage, asset.MaxHealth, "one touch kills: " + row.id);
             }
             var spawn = AssetDatabase.LoadAssetAtPath<SpawnTable>("Assets/_Game/Data/SpawnTable.asset");
@@ -92,11 +93,22 @@ namespace Myong.Tests
             }
 
             // 화면 대각선 절반 + 가장 큰 몸보다 멀어야 화면 밖에서 나타난다.
+            // (1-11) 스폰 반경에 나오는 적(시간대 · 거리 0 웨이브)만 반경과 비교하고, 제 거리가 있는 웨이브는 그 거리와 비교한다.
             float halfWidth = PixelArt.ReferenceWidth / (2f * PixelArt.PixelsPerUnit);
             float halfHeight = PixelArt.ReferenceHeight / (2f * PixelArt.PixelsPerUnit);
+            float halfDiagonal = (float)System.Math.Sqrt(halfWidth * halfWidth + halfHeight * halfHeight);
             float maxRadius = 0f;
-            foreach (var row in enemies.Rows) maxRadius = System.Math.Max(maxRadius, row.radius);
-            Assert.Greater(spawn.SpawnRadius, (float)System.Math.Sqrt(halfWidth * halfWidth + halfHeight * halfHeight) + maxRadius);
+            foreach (var phase in spawn.Phases)
+            {
+                foreach (var (enemyId, _) in SpawnTable.EntriesOf(phase)) maxRadius = System.Math.Max(maxRadius, enemies.Rows[enemies.IndexOf(enemyId)].radius);
+            }
+            foreach (var wave in spawn.Waves)
+            {
+                float r = enemies.Rows[enemies.IndexOf(wave.enemyId)].radius;
+                if (wave.distance > 0f) Assert.Greater(wave.distance, halfDiagonal + r, "wave appears on screen: " + wave.enemyId);
+                else maxRadius = System.Math.Max(maxRadius, r);
+            }
+            Assert.Greater(spawn.SpawnRadius, halfDiagonal + maxRadius);
 
             var rules = spawn.ToRules(enemies);
             Assert.AreEqual(spawn.Phases.Count, rules.Phases.Length);

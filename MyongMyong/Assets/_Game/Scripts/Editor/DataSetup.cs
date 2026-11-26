@@ -37,6 +37,9 @@ namespace Myong.Editor
 
         // 판 길이 첫 값 (BALANCE.md와 같은 값. 기준은 에셋) — GDD 4번 승리: 30분 생존
         const float InitialSurvivalSeconds = 1800f;
+        // 1-11: 목표 뒤 마무리 최대 길이(초) · "생존 성공!" 글을 보이는 초(표시만)
+        const float InitialFinaleSeconds = 60f;
+        const float InitialGoalBannerSeconds = 3f;
 
         // 가상 조이스틱 첫 값 (BALANCE.md와 같은 값. 기준은 에셋. 거리는 HUD 단위 = 기준 해상도 도트)
         const float InitialJoystickRadius = 72f;
@@ -63,6 +66,13 @@ namespace Myong.Editor
             ("runner", 3f, 0.22f, 5f, 1, 5f, "enemy_runner"),
             ("brute", 1.1f, 0.42f, 35f, 3, 15f, "enemy_brute"),
             ("elite", 1.4f, 0.75f, 220f, 20, 20f, "enemy_elite"),
+            (InitialFinaleEnemyId, 7.5f, 1f, 99999f, 0, 0f, "enemy_clockkeeper"), // 1-11 30분 마무리 적(아래 특수 규칙)
+        };
+        // 1-11 30분 마무리 적: id · 무적 몸 · 닿으면 즉사 · 이름 글 키
+        const string InitialFinaleEnemyId = "clockkeeper";
+        public static readonly (string id, bool invulnerable, bool lethalContact, string nameKey)[] InitialEnemyRules =
+        {
+            (InitialFinaleEnemyId, true, true, "enemy.clockkeeper.name"),
         };
         // 시작 초 · 초당 마릿수 · 종류 비중(비면 basic만). 첫 시간대 1.5마리/초 basic은 사용자 확정(2026-11-25).
         public static readonly (float start, float perSecond, (string id, float weight)[] mix)[] InitialPhases =
@@ -73,10 +83,12 @@ namespace Myong.Editor
             (300f, 8f, new[] { (InitialEnemyId, 4f), ("runner", 3f), ("brute", 3f) }),
         };
         // 웨이브: 적 · 시작 초 · 간격 초 · 마릿수 · 방식 · 간격(유닛) · 돌진 속도 배수
-        public static readonly (string id, float start, float interval, int count, Myong.Core.SpawnPattern pattern, float spacing, float speedScale)[] InitialWaves =
+        // 웨이브의 나오는 거리(유닛, 0 = 스폰 반경). 생존 목표(1800초) 이후에 시작하는 웨이브 = 마무리 웨이브(1-11).
+        public static readonly (string id, float start, float interval, int count, Myong.Core.SpawnPattern pattern, float spacing, float speedScale, float distance)[] InitialWaves =
         {
-            ("elite", 120f, 60f, 1, Myong.Core.SpawnPattern.Scatter, 0f, 1f),
-            ("runner", 150f, 45f, 9, Myong.Core.SpawnPattern.Swarm, 0.6f, 1.6f),
+            ("elite", 120f, 60f, 1, Myong.Core.SpawnPattern.Scatter, 0f, 1f, 0f),
+            ("runner", 150f, 45f, 9, Myong.Core.SpawnPattern.Swarm, 0.6f, 1.6f, 0f),
+            (InitialFinaleEnemyId, InitialSurvivalSeconds, 0f, 1, Myong.Core.SpawnPattern.Scatter, 0f, 1f, 22f),
         };
 
         // 무기 첫 값 (BALANCE.md와 같은 값. 기준은 에셋)
@@ -277,6 +289,7 @@ if (AssetDatabase.LoadAssetAtPath<WeaponTable>(WeaponTablePath) == null)
                 var asset = ScriptableObject.CreateInstance<RunTuning>();
                 var so = new SerializedObject(asset);
                 so.FindProperty("survivalSeconds").floatValue = InitialSurvivalSeconds;
+                so.FindProperty("finaleSeconds").floatValue = InitialFinaleSeconds;
                 so.ApplyModifiedPropertiesWithoutUndo();
                 AssetDatabase.CreateAsset(asset, RunTuningPath);
             }
@@ -295,6 +308,7 @@ if (AssetDatabase.LoadAssetAtPath<WeaponTable>(WeaponTablePath) == null)
                 so.FindProperty("enemyDeathSteps").intValue = InitialEnemyDeathSteps;
                 so.FindProperty("enemyDeathPopScale").floatValue = InitialEnemyDeathPopScale;
                 so.FindProperty("maxDeathEffects").intValue = InitialMaxDeathEffects;
+                so.FindProperty("goalBannerSeconds").floatValue = InitialGoalBannerSeconds;
                 so.ApplyModifiedPropertiesWithoutUndo();
                 AssetDatabase.CreateAsset(asset, FeedbackTuningPath);
             }
@@ -337,6 +351,18 @@ if (AssetDatabase.LoadAssetAtPath<WeaponTable>(WeaponTablePath) == null)
             row.FindPropertyRelative("experience").intValue = e.experience;
             row.FindPropertyRelative("contactDamage").floatValue = e.contactDamage;
             row.FindPropertyRelative("visualId").stringValue = e.visualId;
+            bool invulnerable = false, lethalContact = false;
+            string nameKey = string.Empty;
+            foreach (var r in InitialEnemyRules)
+            {
+                if (r.id != e.id) continue;
+                invulnerable = r.invulnerable;
+                lethalContact = r.lethalContact;
+                nameKey = r.nameKey;
+            }
+            row.FindPropertyRelative("invulnerable").boolValue = invulnerable;
+            row.FindPropertyRelative("lethalContact").boolValue = lethalContact;
+            row.FindPropertyRelative("nameKey").stringValue = nameKey;
         }
 
         /// <summary>스폰 표의 시간대 · 웨이브 · 돌진 사라지는 거리에 첫 값을 쓴다(스폰 반경 · 최대 수는 건드리지 않음).</summary>
@@ -372,6 +398,7 @@ if (AssetDatabase.LoadAssetAtPath<WeaponTable>(WeaponTablePath) == null)
                 wave.FindPropertyRelative("pattern").intValue = (int)w.pattern;
                 wave.FindPropertyRelative("spacing").floatValue = w.spacing;
                 wave.FindPropertyRelative("speedScale").floatValue = w.speedScale;
+                wave.FindPropertyRelative("distance").floatValue = w.distance;
             }
             so.FindProperty("chargeDespawnDistance").floatValue = InitialChargeDespawnDistance;
         }

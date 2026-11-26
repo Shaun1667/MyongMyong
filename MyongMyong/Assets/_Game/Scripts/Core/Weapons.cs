@@ -235,14 +235,14 @@ namespace Myong.Core
             }
         }
 
-        // 사거리(+ 적 몸) 안의 살아 있는 적 중 가까운 순서로 최대 want마리를 nearest에 담는다. 거리가 같으면 번호가 앞인 쪽.
+        // 사거리(+ 적 몸) 안의 살아 있는 적(무적 몸 제외) 중 가까운 순서로 최대 want마리를 nearest에 담는다. 거리가 같으면 번호가 앞인 쪽.
         int FindNearest(World world, Vec2 from, float range, int want)
         {
             int found = 0;
             EnemyState[] enemies = world.Enemies;
             for (int i = 0; i < world.EnemyCount; i++)
             {
-                if (enemies[i].Dead) continue;
+                if (enemies[i].Dead || enemyKinds[enemies[i].Kind].Invulnerable) continue; // 무적 몸은 조준하지 않는다
                 float limit = range + enemyKinds[enemies[i].Kind].Radius;
                 float d2 = (enemies[i].Position - from).SqrMagnitude;
                 if (d2 > limit * limit) continue;
@@ -350,7 +350,7 @@ namespace Myong.Core
         void Consider(World world, int bulletIndex, int enemyIndex, Vec2 start, Vec2 end, float bulletRadius, ref int best, ref float bestT)
         {
             ref readonly EnemyState e = ref world.Enemies[enemyIndex];
-            if (e.Dead || AlreadyHit(world, bulletIndex, e.Id)) return;
+            if (e.Dead || enemyKinds[e.Kind].Invulnerable || AlreadyHit(world, bulletIndex, e.Id)) return; // 무적 몸은 탄이 지나간다
             float r = bulletRadius + enemyKinds[e.Kind].Radius;
             float t = SegmentHit(start, end, e.Position, r);
             if (t < 0f) return;

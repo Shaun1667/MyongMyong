@@ -39,6 +39,12 @@ namespace Myong.Unity
         [Tooltip("Vanish effects shown at once (pooled renderers). When more enemies die, the oldest effect is reused.")]
         [SerializeField, Min(0)] int maxDeathEffects;
 
+        [Header("Run goal")]
+        [Tooltip("Seconds the survival message stays on screen after reaching the goal (rounded to ticks, counted in run ticks so it pauses during level-up choices).")]
+        [SerializeField, Min(0f)] float goalBannerSeconds;
+
+        public float GoalBannerSeconds => goalBannerSeconds;
+
         public float PlayerFlashSeconds => playerFlashSeconds;
 
         public float PlayerBlinkSeconds => playerBlinkSeconds;

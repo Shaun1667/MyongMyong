@@ -63,6 +63,14 @@ namespace Myong.Unity
             if (step < 0 || steps <= 0 || step >= steps) return 0f;
             return popScale * (steps - step) / steps;
         }
+
+        /// <summary>생존 목표에 닿은 뒤(goalTick 이후) bannerTicks 동안 "생존 성공!" 글을 보일지. 목표 전(goalTick &lt; 0)이면 false (1-11).</summary>
+        public static bool GoalBannerVisible(long tick, long goalTick, int bannerTicks)
+        {
+            if (goalTick < 0 || bannerTicks <= 0) return false;
+            long since = tick - goalTick;
+            return since >= 0 && since < bannerTicks;
+        }
     }
 
     /// <summary>

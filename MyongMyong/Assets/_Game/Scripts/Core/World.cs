@@ -119,6 +119,17 @@ namespace Myong.Core
         public long HitsTaken;
         public float DamageTakenTotal;
 
+        /// <summary>GoalReachedTick에 넣는 값: 아직 생존 목표에 닿지 않음.</summary>
+        public const long GoalNotReached = -1;
+
+        /// <summary>생존 목표에 닿은 틱(이때 승리가 확정된다). 아직이면 GoalNotReached.</summary>
+        public long GoalReachedTick = GoalNotReached;
+        /// <summary>목표에 닿아 사라진 적의 수(처치 아님 · 젬 없음).</summary>
+        public long EnemiesDismissedTotal;
+
+        /// <summary>생존 목표에 닿았다(승리 확정 — 이후 판이 어떻게 끝나든 승리).</summary>
+        public bool GoalReached => GoalReachedTick >= 0;
+
         /// <summary>판이 끝났다(패배 · 승리).</summary>
         public bool IsOver => Outcome != RunOutcome.Playing;
 

@@ -13,3 +13,4 @@ MonoBehaviour:
   m_Name: RunTuning
   m_EditorClassIdentifier: Myong.Unity::Myong.Unity.RunTuning
   survivalSeconds: 1800
+  finaleSeconds: 60

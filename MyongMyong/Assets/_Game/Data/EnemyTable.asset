@@ -20,6 +20,9 @@ MonoBehaviour:
     experience: 1
     contactDamage: 10
     visualId: enemy_basic
+    invulnerable: 0
+    lethalContact: 0
+    nameKey: 
   - id: runner
     moveSpeed: 3
     radius: 0.22
@@ -27,6 +30,9 @@ MonoBehaviour:
     experience: 1
     contactDamage: 5
     visualId: enemy_runner
+    invulnerable: 0
+    lethalContact: 0
+    nameKey: 
   - id: brute
     moveSpeed: 1.1
     radius: 0.42
@@ -34,6 +40,9 @@ MonoBehaviour:
     experience: 3
     contactDamage: 15
     visualId: enemy_brute
+    invulnerable: 0
+    lethalContact: 0
+    nameKey: 
   - id: elite
     moveSpeed: 1.4
     radius: 0.75
@@ -41,4 +50,17 @@ MonoBehaviour:
     experience: 20
     contactDamage: 20
     visualId: enemy_elite
+    invulnerable: 0
+    lethalContact: 0
+    nameKey: 
+  - id: clockkeeper
+    moveSpeed: 7.5
+    radius: 1
+    maxHealth: 99999
+    experience: 0
+    contactDamage: 0
+    visualId: enemy_clockkeeper
+    invulnerable: 1
+    lethalContact: 1
+    nameKey: enemy.clockkeeper.name
   separationPush: 0.5

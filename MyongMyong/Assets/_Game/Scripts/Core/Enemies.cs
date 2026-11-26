@@ -16,8 +16,17 @@ namespace Myong.Core
         /// <summary>플레이어와 겹치면(반지름 합) 주는 피해(0 = 닿아도 피해 없음).</summary>
         public readonly float ContactDamage;
 
-        public EnemyKindData(float moveSpeed, float radius, float maxHealth = 1f, int experienceValue = 0, float contactDamage = 0f)
+        /// <summary>
+        /// 무적 몸: 탄이 조준하지 않고 지나가며(체력이 줄지 않음), 다른 적과 밀어내지 않는다(겹쳐 지나감). 30분 마무리 적(1-11).
+        /// </summary>
+        public readonly bool Invulnerable;
+        /// <summary>닿으면 즉사: 맞은 뒤 무적 시간 · 받는 피해 배율과 상관없이 체력이 0이 된다(디버그 플레이어 무적만 막음). 30분 마무리 적(1-11).</summary>
+        public readonly bool LethalContact;
+
+        public EnemyKindData(float moveSpeed, float radius, float maxHealth = 1f, int experienceValue = 0, float contactDamage = 0f, bool invulnerable = false, bool lethalContact = false)
         {
+            Invulnerable = invulnerable;
+            LethalContact = lethalContact;
             ContactDamage = contactDamage;
             MoveSpeed = moveSpeed;
             Radius = radius;
@@ -113,9 +122,12 @@ namespace Myong.Core
         public readonly float Spacing;
         /// <summary>Swarm: 돌진 속도 = 종류 이동 속도 × 이 값.</summary>
         public readonly float SpeedScale;
+        /// <summary>Scatter: 플레이어에게서 이만큼(유닛) 떨어진 원 위에 나온다. 0 = 스폰 반경(EnemyRulesData.SpawnRadius). 큰 적이 화면 밖에서 나오게(1-11).</summary>
+        public readonly float Distance;
 
-        public SpawnWaveData(int kind, float startSeconds, float intervalSeconds, int count, SpawnPattern pattern = SpawnPattern.Scatter, float spacing = 0f, float speedScale = 1f)
+        public SpawnWaveData(int kind, float startSeconds, float intervalSeconds, int count, SpawnPattern pattern = SpawnPattern.Scatter, float spacing = 0f, float speedScale = 1f, float distance = 0f)
         {
+            Distance = distance < 0f ? 0f : distance;
             Kind = kind;
             StartSeconds = startSeconds;
             IntervalSeconds = intervalSeconds;
@@ -152,7 +164,7 @@ namespace Myong.Core
         public readonly int MaxAlive;
         /// <summary>겹친 적끼리 한 틱에 겹친 거리의 얼마를 풀지(0 = 밀어내기 없음, 1 = 한 틱에 다 풂).</summary>
         public readonly float SeparationPush;
-        /// <summary>가장 큰 몸 반지름(해시 격자 칸 크기).</summary>
+        /// <summary>가장 큰 몸 반지름(해시 격자 칸 크기). 무적 몸(Invulnerable)은 빼고 센다.</summary>
         public readonly float MaxRadius;
 
         public EnemyRulesData(EnemyKindData[] kinds, SpawnPhaseData[] phases, float spawnRadius, int maxAlive, float separationPush)
@@ -187,9 +199,10 @@ namespace Myong.Core
             SpawnRadius = spawnRadius;
             MaxAlive = maxAlive;
             SeparationPush = separationPush < 0f ? 0f : (separationPush > 1f ? 1f : separationPush);
+            // 무적 몸(Invulnerable)은 밀어내기 · 탄 맞기에 들지 않으므로 격자 칸 크기에서 뺀다(그런 적이 생겨도 다른 적의 결과가 그대로).
             foreach (var kind in Kinds)
             {
-                if (kind.Radius > MaxRadius) MaxRadius = kind.Radius;
+                if (!kind.Invulnerable && kind.Radius > MaxRadius) MaxRadius = kind.Radius;
             }
         }
 
@@ -291,6 +304,11 @@ namespace Myong.Core
             float half = strength * 0.5f;
             for (int i = 0; i < count; i++)
             {
+                if (kinds[enemies[i].Kind].Invulnerable)
+                {
+                    push[i] = Vec2.Zero; // 무적 몸은 밀지도 밀리지도 않는다
+                    continue;
+                }
                 Vec2 p = enemies[i].Position;
                 float r = kinds[enemies[i].Kind].Radius;
                 int cx = grid.Cell(p.X);
@@ -306,7 +324,7 @@ namespace Myong.Core
                         visited[visitedCount++] = bucket;
                         for (int j = grid.Head[bucket]; j >= 0; j = grid.Next[j])
                         {
-                            if (j == i) continue;
+                            if (j == i || kinds[enemies[j].Kind].Invulnerable) continue;
                             float minDistance = r + kinds[enemies[j].Kind].Radius;
                             Vec2 delta = p - enemies[j].Position;
                             float d2 = delta.SqrMagnitude;

@@ -198,6 +198,12 @@ namespace Myong.Editor
 
         const int TimerFontSize = 22;
         const float TimerWidth = 160f;
+        const int GoalFontSize = 34;
+        const int FinaleFontSize = 20;
+        const float GoalWidth = 520f;
+        const float GoalGap = 12f;
+        static readonly Color GoalColor = new Color(1f, 0.86f, 0.4f, 1f);
+        static readonly Color FinaleColor = new Color(0.86f, 0.74f, 1f, 1f);
 
         /// <summary>판 시간 mm:ss(화면 위 가운데, 경험치 바 바로 아래). 레벨업 · 판 끝 창보다 아래에 그려지도록 Build 다음, BuildGameOver 전에 부르고 레벨업 창 앞 형제로 둔다.</summary>
         public static RunTimerHud BuildTimer(GameObject hudRoot)
@@ -210,6 +216,18 @@ namespace Myong.Editor
             if (levelUp != null && timer.GetSiblingIndex() > levelUp.GetSiblingIndex()) timer.SetSiblingIndex(levelUp.GetSiblingIndex());
             var hud = GetOrAdd<RunTimerHud>(timer.gameObject);
             SetupUtil.SetReference(hud, "timerLabel", timerText);
+
+            // 생존 목표 글(1-11): 타이머 아래 크게, 그 아래 마무리 적 이름 줄. 타이머의 자식이라 창들보다 아래에 그려진다. 평소에는 꺼 둔다(RunTimerHud가 켬다).
+            var goal = Child(timer, "GoalLabel");
+            Place(goal, new Vector2(0.5f, 1f), new Vector2(0.5f, 1f), new Vector2(0.5f, 1f), new Vector2(0f, -(TimerFontSize * 1.6f + GoalGap)), new Vector2(GoalWidth, GoalFontSize * 1.5f));
+            var goalText = Label(goal.gameObject, GoalFontSize, TextAnchor.MiddleCenter, GoalColor);
+            goal.gameObject.SetActive(false);
+            var finale = Child(timer, "FinaleLabel");
+            Place(finale, new Vector2(0.5f, 1f), new Vector2(0.5f, 1f), new Vector2(0.5f, 1f), new Vector2(0f, -(TimerFontSize * 1.6f + GoalGap + GoalFontSize * 1.5f)), new Vector2(GoalWidth, FinaleFontSize * 1.6f));
+            var finaleText = Label(finale.gameObject, FinaleFontSize, TextAnchor.MiddleCenter, FinaleColor);
+            finale.gameObject.SetActive(false);
+            SetupUtil.SetReference(hud, "goalLabel", goalText);
+            SetupUtil.SetReference(hud, "finaleLabel", finaleText);
             return hud;
         }
 

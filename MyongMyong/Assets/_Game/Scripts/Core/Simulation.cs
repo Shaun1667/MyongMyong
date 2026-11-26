@@ -61,6 +61,10 @@ namespace Myong.Core
         // 웨이브마다 시작 틱 · 간격 틱(판 시작 전에 한 번 계산, Step 중 할당 없음).
         readonly long[] waveStartTicks;
         readonly long[] waveIntervalTicks;
+        // 목표 이후에 시작하는 웨이브(마무리 웨이브)인지. 마무리 웨이브는 목표에 닿은 뒤에만, 나머지는 닿기 전에만 나온다.
+        readonly bool[] waveIsFinale;
+        // 목표에 닿은 뒤 판이 끝날 때까지 길어야(틱). 0 = 목표에서 바로 판 끝(1-7 방식).
+        readonly long finaleTicks;
 
         public Simulation(int ticksPerSecond, PlayerTuningData player)
             : this(ticksPerSecond, player, EnemyRulesData.None, WeaponRulesData.None)
@@ -110,10 +114,13 @@ namespace Myong.Core
             survivalTicks = RunClock.TicksOf(run.SurvivalSeconds, ticksPerSecond);
             waveStartTicks = new long[enemies.Waves.Length];
             waveIntervalTicks = new long[enemies.Waves.Length];
+            waveIsFinale = new bool[enemies.Waves.Length];
+            finaleTicks = RunClock.TicksOf(run.FinaleSeconds, ticksPerSecond);
             for (int w = 0; w < enemies.Waves.Length; w++)
             {
                 waveStartTicks[w] = RunClock.TicksOf(enemies.Waves[w].StartSeconds, ticksPerSecond);
                 waveIntervalTicks[w] = enemies.Waves[w].IntervalSeconds > 0f ? Math.Max(1L, RunClock.TicksOf(enemies.Waves[w].IntervalSeconds, ticksPerSecond)) : 0L;
+                waveIsFinale[w] = survivalTicks > 0 && waveStartTicks[w] >= survivalTicks;
             }
         }
 
@@ -180,11 +187,32 @@ namespace Myong.Core
         /// <summary>맞은 뒤 무적 시간(틱).</summary>
         public int HurtInvulnerableTicks => health.InvulnerableTicks;
 
-        /// <summary>판이 끝날 때까지 버틴 시간(초). 진행 중이면 지금까지.</summary>
-        public float SurvivedSeconds(World world) => (world.IsOver ? world.Result.Ticks : world.Tick) * TickSeconds;
+        /// <summary>판이 끝날 때까지 버틴 시간(초) = RunTicks × 틱 길이. 진행 중이면 지금까지, 목표에 닿았으면 목표 시간.</summary>
+        public float SurvivedSeconds(World world) => RunTicks(world) * TickSeconds;
 
-        /// <summary>판 시간(틱): 진행 중이면 지금 틱, 끝났으면 끝난 틱. HUD 타이머가 읽는다(레벨업 선택 중에는 틱이 멈추므로 타이머도 멈춘다).</summary>
-        public long RunTicks(World world) => world.IsOver ? world.Result.Ticks : world.Tick;
+        /// <summary>
+        /// 판 시간(틱): 진행 중이면 지금 틱, 끝났으면 끝난 틱. HUD 타이머가 읽는다(레벨업 선택 중에는 틱이 멈추므로 타이머도 멈춘다).
+        /// 생존 목표에 닿은 뒤에는 목표 틱에서 멈춘다(마무리 중에도 30:00).
+        /// </summary>
+        public long RunTicks(World world)
+        {
+            if (world.GoalReached && survivalTicks > 0) return survivalTicks;
+            return world.IsOver ? world.Result.Ticks : world.Tick;
+        }
+
+        /// <summary>목표에 닿은 뒤 판이 끝날 때까지 길어야(틱, RunTuning). 0 = 목표에서 바로 판 끝.</summary>
+        public long FinaleTicks => finaleTicks;
+
+        /// <summary>마무리가 끝날 때까지 남은 틱(목표 전이면 마무리 길이 전부, 끝났으면 0).</summary>
+        public long FinaleTicksLeft(World world)
+        {
+            if (world.IsOver) return 0;
+            if (!world.GoalReached) return finaleTicks;
+            return Math.Max(0L, finaleTicks - (world.Tick - world.GoalReachedTick));
+        }
+
+        /// <summary>마무리 웨이브(목표 이후에 시작)인지.</summary>
+        public bool IsFinaleWave(int wave) => wave >= 0 && wave < waveIsFinale.Length && waveIsFinale[wave];
 
         /// <summary>생존 목표(틱). 이 틱에 닿으면 승리. 0 = 시간 승리 없음.</summary>
         public long SurvivalTicks => survivalTicks;
@@ -195,12 +223,20 @@ namespace Myong.Core
         /// <summary>
         /// 순서: 플레이어 이동 → 적 추적 → 적끼리 밀어내기 → 적 접촉 피해 × 받는 피해 배율(체력 0이면 그 틱에서 판 끝) → 체력 재생 → 발사(사거리 안 가장 가까운 적) → 탄 이동 · 맞기
         /// → 젬 끌기 · 줍기(경험치 · 레벨) → 죽은 적 자리에 젬 떨어뜨리기 → 죽은 적 빼기 → 돌진하다 멀어진 적 빼기 → 스폰(시간대 비중 → 웨이브, 새 적 · 새 젬은 그 틱에는 움직이지 않는다)
-        /// → 틱 + 1 → 생존 목표 틱에 닿았으면 승리(같은 틱에 체력 0이면 패배가 먼저).
+        /// → 틱 + 1 → 생존 목표 틱에 닿았으면 승리 확정(같은 틱에 체력 0이면 패배가 먼저).
+        /// 목표에 닿으면(1-11): 마무리 시간이 0이면 바로 승리로 판 끝. 아니면 남은 적이 모두 사라지고(처치 아님 · 젬 없음) 시간대 스폰 · 보통 웨이브는 멈추며
+        /// 마무리 웨이브만 나온다. 그 뒤 죽거나(승리) 마무리 시간이 다 되면(체력 0 → 승리) 판이 끝난다.
         /// 레벨업 선택을 기다리는 동안(PendingLevelUps > 0)과 판이 끝난 뒤(IsOver)에는 아무것도 하지 않는다 — 틱도 멈춘다.
         /// </summary>
         public void Step(World world, in InputFrame input)
         {
             if (world.IsOver || world.PendingLevelUps > 0) return;
+            // 건너뛰기(디버그)로 목표를 넘었으면 이 틱을 하기 전에 목표에 닿는다.
+            if (survivalTicks > 0 && !world.GoalReached && world.Tick >= survivalTicks)
+            {
+                ReachGoal(world);
+                if (world.IsOver) return;
+            }
             StepPlayer(world, input);
             StepEnemies(world);
             if (health.StepContact(world, progression.DamageTakenScale(world)))
@@ -219,7 +255,41 @@ namespace Myong.Core
             RemoveEscapedEnemies(world);
             StepSpawning(world);
             world.Tick++;
-            if (survivalTicks > 0 && world.Tick >= survivalTicks) HealthRules.EndRun(world, RunOutcome.Victory);
+            if (survivalTicks <= 0) return;
+            if (!world.GoalReached)
+            {
+                if (world.Tick >= survivalTicks) ReachGoal(world);
+            }
+            else if (world.Tick - world.GoalReachedTick >= finaleTicks)
+            {
+                EndFinale(world);
+            }
+        }
+
+        // 생존 목표에 닿음: 승리 확정. 마무리가 없으면 바로 판 끝(1-7 그대로), 있으면 남은 적을 모두 없앤다(처치 아님 · 젬 없음).
+        void ReachGoal(World world)
+        {
+            world.GoalReachedTick = world.Tick;
+            if (finaleTicks <= 0)
+            {
+                HealthRules.EndRun(world, RunOutcome.Victory);
+                return;
+            }
+            world.EnemiesDismissedTotal += world.EnemyCount;
+            world.EnemyCount = 0;
+            world.SpawnBudget = 0f;
+        }
+
+        // 마무리 시간이 다 됐다: 잡히지 않았어도(디버그 무적 포함) 잡힌 것과 같이 끝낸다 — 체력 0 → 승리.
+        void EndFinale(World world)
+        {
+            ref PlayerState p = ref world.Player;
+            if (p.Health > 0f)
+            {
+                p.Health = 0f;
+                p.LastHurtTick = world.Tick;
+            }
+            HealthRules.EndRun(world, RunOutcome.Victory);
         }
 
         void StepPlayer(World world, in InputFrame input)
@@ -283,7 +353,8 @@ namespace Myong.Core
         void StepSpawning(World world)
         {
             if (world.SpawningPaused) return;
-            int phaseIndex = enemies.PhaseAt(ElapsedSeconds(world));
+            // 목표에 닿은 뒤에는 시간대 스폰이 없다(마무리 웨이브만).
+            int phaseIndex = world.GoalReached ? -1 : enemies.PhaseAt(ElapsedSeconds(world));
             if (phaseIndex >= 0)
             {
                 SpawnPhaseData phase = enemies.Phases[phaseIndex];
@@ -297,20 +368,28 @@ namespace Myong.Core
             }
             for (int w = 0; w < waveStartTicks.Length; w++)
             {
-                if (WaveDue(w, world.Tick)) SpawnWave(world, enemies.Waves[w]);
+                if (WaveDue(w, world)) SpawnWave(world, enemies.Waves[w]);
             }
         }
 
-        bool WaveDue(int wave, long tick)
+        // 마무리 웨이브는 목표에 닿은 뒤에만, 나머지는 닿기 전에만. 마무리 웨이브의 시작은 목표에 닿은 틱보다 이르지 않다(건너뛰기로 목표를 넘어도 나온다).
+        bool WaveDue(int wave, World world)
         {
+            bool finale = waveIsFinale[wave];
+            if (finale != world.GoalReached) return false;
             long start = waveStartTicks[wave];
+            if (finale && world.GoalReachedTick > start) start = world.GoalReachedTick;
+            return Due(start, waveIntervalTicks[wave], world.Tick);
+        }
+
+        static bool Due(long start, long interval, long tick)
+        {
             if (tick < start) return false;
-            long interval = waveIntervalTicks[wave];
             return interval <= 0 ? tick == start : (tick - start) % interval == 0;
         }
 
-        /// <summary>이 틱에 웨이브 w가 나오는지(확인용).</summary>
-        public bool IsWaveTick(int wave, long tick) => wave >= 0 && wave < waveStartTicks.Length && WaveDue(wave, tick);
+        /// <summary>이 틱에 웨이브 w가 나오는 때인지(표의 시작 · 간격만 봄, 확인용).</summary>
+        public bool IsWaveTick(int wave, long tick) => wave >= 0 && wave < waveStartTicks.Length && Due(waveStartTicks[wave], waveIntervalTicks[wave], tick);
 
         /// <summary>tick 뒤(포함) 웨이브 w가 처음 나오는 틱. 더 없으면 -1.</summary>
         public long NextWaveTick(int wave, long tick)
@@ -337,9 +416,10 @@ namespace Myong.Core
                 SpawnSwarm(world, wave);
                 return;
             }
+            float distance = wave.Distance > 0f ? wave.Distance : enemies.SpawnRadius;
             for (int i = 0; i < wave.Count; i++)
             {
-                if (!TrySpawn(world, wave.Kind)) break;
+                if (!TrySpawn(world, wave.Kind, distance)) break;
             }
         }
 
@@ -362,11 +442,13 @@ namespace Myong.Core
             }
         }
 
-        bool TrySpawn(World world, int kind)
+        bool TrySpawn(World world, int kind) => TrySpawn(world, kind, enemies.SpawnRadius);
+
+        bool TrySpawn(World world, int kind, float distance)
         {
             if (world.EnemyCount >= world.Enemies.Length) return false;
             float angle = world.SpawnRandom.Range(0f, FullTurn);
-            Vec2 offset = new Vec2((float)Math.Cos(angle), (float)Math.Sin(angle)) * enemies.SpawnRadius;
+            Vec2 offset = new Vec2((float)Math.Cos(angle), (float)Math.Sin(angle)) * distance;
             return TrySpawnAt(world, kind, world.Player.Position + offset, Vec2.Zero);
         }
 

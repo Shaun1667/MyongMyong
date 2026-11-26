@@ -22,3 +22,4 @@ MonoBehaviour:
   enemyDeathSteps: 4
   enemyDeathPopScale: 1.25
   maxDeathEffects: 64
+  goalBannerSeconds: 3

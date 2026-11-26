@@ -51,6 +51,8 @@ namespace Myong.Unity
             [Min(0f)] public float spacing;
             [Tooltip("Swarm: charge speed = enemy move speed x this.")]
             [Min(0f)] public float speedScale = 1f;
+            [Tooltip("Scatter: distance from the player (units) the wave appears at. 0 = Spawn Radius. Use it for big enemies so they still appear off screen. A wave starting at or after the survival goal (Run Tuning) is an end-of-run wave: it only comes after the goal.")]
+            [Min(0f)] public float distance;
         }
 
         [SerializeField] List<Phase> phases = new List<Phase>();
@@ -91,7 +93,11 @@ namespace Myong.Unity
         public EnemyRulesData ToRules(EnemyTable enemies)
         {
             var kinds = new EnemyKindData[enemies.Rows.Count];
-            for (int i = 0; i < kinds.Length; i++) kinds[i] = new EnemyKindData(enemies.Rows[i].moveSpeed, enemies.Rows[i].radius, enemies.Rows[i].maxHealth, enemies.Rows[i].experience, enemies.Rows[i].contactDamage);
+            for (int i = 0; i < kinds.Length; i++)
+            {
+                var row = enemies.Rows[i];
+                kinds[i] = new EnemyKindData(row.moveSpeed, row.radius, row.maxHealth, row.experience, row.contactDamage, row.invulnerable, row.lethalContact);
+            }
 
             var list = new List<SpawnPhaseData>(phases.Count);
             var mix = new List<SpawnWeight>();
@@ -121,7 +127,7 @@ namespace Myong.Unity
                     Debug.LogError($"[Myong] SpawnTable wave at {wave.startSeconds}s refers to unknown enemy id '{wave.enemyId}'", this);
                     continue;
                 }
-                waveList.Add(new SpawnWaveData(kind, wave.startSeconds, wave.intervalSeconds, wave.count, wave.pattern, wave.spacing, wave.speedScale));
+                waveList.Add(new SpawnWaveData(kind, wave.startSeconds, wave.intervalSeconds, wave.count, wave.pattern, wave.spacing, wave.speedScale, wave.distance));
             }
             return new EnemyRulesData(kinds, list.ToArray(), spawnRadius, maxAlive, enemies.SeparationPush, waveList.ToArray(), chargeDespawnDistance);
         }

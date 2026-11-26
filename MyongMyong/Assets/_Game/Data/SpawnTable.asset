@@ -53,6 +53,7 @@ MonoBehaviour:
     pattern: 0
     spacing: 0
     speedScale: 1
+    distance: 0
   - enemyId: runner
     startSeconds: 150
     intervalSeconds: 45
@@ -60,6 +61,15 @@ MonoBehaviour:
     pattern: 1
     spacing: 0.6
     speedScale: 1.6
+    distance: 0
+  - enemyId: clockkeeper
+    startSeconds: 1800
+    intervalSeconds: 0
+    count: 1
+    pattern: 0
+    spacing: 0
+    speedScale: 1
+    distance: 22
   spawnRadius: 18
   maxAlive: 300
   chargeDespawnDistance: 24

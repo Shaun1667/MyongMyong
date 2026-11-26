@@ -118,6 +118,12 @@ namespace Myong.Editor
             EditorGUILayout.LabelField("생존 목표", goal > 0f ? $"{goal:0}초 ({(int)goal / 60:00}:{(int)goal % 60:00}) · 남은 {Mathf.Max(0f, goal - root.DebugSurvivedSeconds):0.0}초" : "없음 (RunTuning이 없거나 0)");
             EditorGUILayout.LabelField("레벨업 선택 중", root.DebugPendingLevelUps > 0 ? "예 (타이머 멈춤)" : "아니오");
             if (root.DebugIsOver) EditorGUILayout.LabelField("판 끝 창", $"'{root.DebugGameOverTitle}' · '{root.DebugGameOverTime}'");
+            float tps = root.DebugRunTicks > 0 && root.DebugElapsedSeconds > 0f ? root.DebugTick / root.DebugElapsedSeconds : 60f;
+            EditorGUILayout.LabelField("마무리 (1-11)", root.DebugGoalReached
+                ? $"목표 도달 틱 {root.DebugGoalReachedTick} · 남은 {root.DebugFinaleTicksLeft}틱 ({root.DebugFinaleTicksLeft / tps:0.0}초) · 사라진 적 {root.DebugEnemiesDismissedTotal}"
+                : $"아직 (마무리 길이 {root.DebugFinaleTicks}틱)");
+            EditorGUILayout.LabelField("마무리 표시", $"목표 글 {(root.DebugGoalBannerShown ? "떠 있음" : "없음")} '{root.DebugGoalBannerText}' · 타이머 색 {(root.DebugTimerInGoalColor ? "목표" : "보통")} · 이름 키 '{root.DebugFinaleNameKey}'");
+            if (root.DebugIsOver) EditorGUILayout.LabelField("잡혀 끝남", root.DebugResult.PlayerDied ? "예 (사망 연출 뒤 창)" : "아니오");
 
             using (new EditorGUI.DisabledScope(root.DebugIsOver || goal <= 0f))
             {
@@ -134,6 +140,10 @@ namespace Myong.Editor
                     skipMinutes = Mathf.Max(0, EditorGUILayout.IntField("분", skipMinutes));
                     skipSeconds = Mathf.Clamp(EditorGUILayout.IntField("초", skipSeconds), 0, 59);
                     if (GUILayout.Button(StateChange + $"{skipMinutes:00}:{skipSeconds:00}로 건너뛰기 (앞으로만)")) root.DebugSkipToSeconds(skipMinutes * 60f + skipSeconds);
+                }
+                using (new EditorGUI.DisabledScope(goal <= 0f || root.DebugGoalReached))
+                {
+                    if (GUILayout.Button(StateChange + "마무리 바로 (목표 시간으로 → 생존 성공 · 마무리 적 등장)")) root.DebugFinaleNow();
                 }
                 if (GUILayout.Button(StateChange + "바로 승리")) root.DebugVictoryNow();
             }

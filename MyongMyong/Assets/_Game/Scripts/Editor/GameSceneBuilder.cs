@@ -41,6 +41,7 @@ namespace Myong.Editor
             ("enemy_runner", new Color32(0xF0, 0x8A, 0x3C, 0xFF)), // 주황 — 빠르고 약한 적
             ("enemy_brute", new Color32(0x6E, 0x56, 0xC8, 0xFF)), // 남보라 — 느리고 단단한 적
             ("enemy_elite", new Color32(0xD2, 0x3C, 0x46, 0xFF)), // 진홍 — 정예
+            ("enemy_clockkeeper", new Color32(0x3C, 0x1E, 0x4A, 0xFF)), // 진한 가지색 — 30분 마무리 적(1-11)
         };
         const int GroundTileDots = 64;
         const int GroundCellDots = 32;

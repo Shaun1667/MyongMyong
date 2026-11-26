@@ -63,3 +63,7 @@ passive.growth.short,배,XP
 # 대체 보상 (PassiveTable의 fallback 키, {0} = 회복량)
 reward.heal.name,간식,Snack
 reward.heal.desc,체력 {0} 회복,Restore {0} health
+# 30분 마무리 (1-11)
+ui.hud.goal_reached,생존 성공!,You survived!
+ui.hud.finale_warning,{0} 등장!,{0} is coming!
+enemy.clockkeeper.name,시계지기,The Clockkeeper

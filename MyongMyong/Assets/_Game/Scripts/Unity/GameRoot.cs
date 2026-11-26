@@ -51,6 +51,9 @@ namespace Myong.Unity
         float frameMillisecondsAverage;
         bool debugAutoChooseFirst;
         Func<int, LevelUpOption> describeChoice;
+        // 마무리(1-11): 목표 글을 보일 틱 수 · 마무리 웨이브 적의 이름 글 키(없으면 null).
+        int goalBannerTicks;
+        string finaleNameKey;
 
         void Awake()
         {
@@ -74,6 +77,8 @@ namespace Myong.Unity
             simulation = new Simulation(simulationTuning.TicksPerSecond, playerTuning.ToData(), enemyRules, weaponRules, experienceRules, upgradeRules, runRules, passiveRules);
             describeChoice = simulation.DescribeChoice;
             world = simulation.CreateWorld(seed);
+            goalBannerTicks = feedbackTuning != null ? FeedbackRules.TicksOf(feedbackTuning.GoalBannerSeconds, simulation.TicksPerSecond) : 0;
+            finaleNameKey = FindFinaleNameKey(enemyRules);
             accumulator = 0f;
             if (enemyView != null) enemyView.Prepare(enemyRules.MaxAlive, enemyTable, feedbackTuning, simulation.TicksPerSecond);
             if (bulletView != null) bulletView.Prepare(weaponRules.MaxBullets, weaponTable);
@@ -83,6 +88,21 @@ namespace Myong.Unity
                 playerView.Configure(feedbackTuning, simulation.TicksPerSecond);
                 playerView.ResetView();
             }
+        }
+
+        // 마무리 웨이브(목표 이후에 시작) 중 처음 것의 적 이름 글 키(EnemyTable nameKey). 없으면 null.
+        string FindFinaleNameKey(EnemyRulesData enemyRules)
+        {
+            if (enemyTable == null) return null;
+            for (int w = 0; w < enemyRules.Waves.Length; w++)
+            {
+                if (!simulation.IsFinaleWave(w)) continue;
+                int kind = enemyRules.Waves[w].Kind;
+                if (kind < 0 || kind >= enemyTable.Rows.Count) continue;
+                string key = enemyTable.Rows[kind].nameKey;
+                if (!string.IsNullOrEmpty(key)) return key;
+            }
+            return null;
         }
 
         void OnDestroy()
@@ -138,8 +158,9 @@ namespace Myong.Unity
 
             // 멈춰 있을 때는 마지막 틱 그대로(보간 없이) 그린다.
             float alpha = world.IsChoosingUpgrade || world.IsOver ? 1f : accumulator / tick;
-            // 사망(패배): 시뮬레이션은 이미 멈춰 있다. 사망 애니메이션이 끝난 뒤에 판 끝 창을 띄운다(승리는 바로).
-            bool dead = world.Outcome == RunOutcome.Defeat;
+            // 사망: 시뮬레이션은 이미 멈춰 있다. 사망 애니메이션이 끝난 뒤에 판 끝 창을 띄운다.
+            // 패배는 모두, 승리는 목표 뒤 잡혀(체력 0) 끝난 때만(1-11) — 창은 승리 창. 잡히지 않은 승리(디버그 바로 승리)는 바로.
+            bool dead = world.Outcome == RunOutcome.Defeat || (world.IsOver && world.Result.PlayerDied);
             if (playerView != null) playerView.Render(world.Player, alpha, simulation.MoveSpeed(world), world.Tick, dead);
             if (healthBar != null) healthBar.Render(world.Player, alpha, simulation.MaxHealthOf(world));
             if (enemyView != null) enemyView.Render(world.Enemies, world.EnemyCount, alpha, world.Tick, world.EnemiesKilledTotal);
@@ -148,7 +169,11 @@ namespace Myong.Unity
             if (experienceHud != null) experienceHud.Render(world.Level, world.Experience, simulation.ExperienceToNext(world.Level));
             if (levelUpView != null) levelUpView.Render(world.PendingLevelUps, world.LevelUpChoices, world.LevelUpChoiceCount, describeChoice, world.UpgradeStages, upgradeTable, world.PassiveStages, passiveTable);
             if (passiveHud != null) passiveHud.Render(world.PassiveSlots, world.PassiveSlotCount, world.PassiveStages, passiveTable);
-            if (timerHud != null) timerHud.Render(simulation.RunTicks(world), simulation.TicksPerSecond);
+            if (timerHud != null)
+            {
+                bool banner = !world.IsOver && FeedbackRules.GoalBannerVisible(world.Tick, world.GoalReachedTick, goalBannerTicks);
+                timerHud.Render(simulation.RunTicks(world), simulation.TicksPerSecond, world.GoalReached, banner, finaleNameKey);
+            }
             bool showResult = world.IsOver && (!dead || playerView == null || playerView.DeathPresentationDone);
             RunResult shownResult = showResult ? world.Result : default;
             if (gameOverView != null) gameOverView.Render(shownResult, simulation.SurvivedSeconds(world));
@@ -527,6 +552,36 @@ namespace Myong.Unity
         {
             if (simulation.SurvivalTicks <= 0) return false;
             return DebugSkipToSeconds(Math.Max(0f, simulation.SurvivalSeconds - secondsBefore));
+        }
+
+        /// <summary>생존 목표에 닿았는지 · 닿은 틱(-1 = 아직) · 마무리 남은 틱 · 마무리 길이(틱) · 목표에서 사라진 적 수 (1-11).</summary>
+        public bool DebugGoalReached => world.GoalReached;
+
+        public long DebugGoalReachedTick => world.GoalReachedTick;
+
+        public long DebugFinaleTicksLeft => simulation.FinaleTicksLeft(world);
+
+        public long DebugFinaleTicks => simulation.FinaleTicks;
+
+        public long DebugEnemiesDismissedTotal => world.EnemiesDismissedTotal;
+
+        /// <summary>마무리 적 이름 글 키 · 목표 글이 떠 있는지 · 그 글 · 타이머가 목표 색인지(표시 확인용).</summary>
+        public string DebugFinaleNameKey => finaleNameKey ?? string.Empty;
+
+        public bool DebugGoalBannerShown => timerHud != null && timerHud.BannerShown;
+
+        public string DebugGoalBannerText => timerHud != null ? timerHud.ShownGoal + " / " + timerHud.ShownFinale : string.Empty;
+
+        public bool DebugTimerInGoalColor => timerHud != null && timerHud.TimerInGoalColor;
+
+        /// <summary>마무리 웨이브인지(디버그 창 표시용).</summary>
+        public bool DebugIsFinaleWave(int wave) => simulation.IsFinaleWave(wave);
+
+        /// <summary>[상태 변경] 마무리 바로: 생존 목표 시간으로 건너뛴다 — 다음 틱에 목표(생존 성공) → 남은 적이 사라지고 마무리 적이 나온다. 목표가 없거나 이미 닿았으면 false.</summary>
+        public bool DebugFinaleNow()
+        {
+            if (simulation.SurvivalTicks <= 0 || world.GoalReached) return false;
+            return DebugSkipToSeconds(simulation.SurvivalSeconds);
         }
 
         /// <summary>[상태 변경] 바로 승리(시간을 건너뛰지 않고 지금 틱으로 판 끝 — 창 모양 확인용).</summary>
