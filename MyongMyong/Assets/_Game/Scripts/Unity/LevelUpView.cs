@@ -20,6 +20,7 @@ namespace Myong.Unity
             public UnityEngine.UI.Text description;
             public UnityEngine.UI.Text stage;
             public UnityEngine.UI.Text key;
+            public UnityEngine.UI.Text kind;
         }
 
         [SerializeField] GameObject panel;
@@ -60,6 +61,7 @@ namespace Myong.Unity
                 SetFont(card.description);
                 SetFont(card.stage);
                 SetFont(card.key);
+                SetFont(card.kind);
             }
             Text.Changed += OnTextChanged;
         }
@@ -79,12 +81,13 @@ namespace Myong.Unity
             if (label != null) label.font = UiFont.Get(label.fontSize);
         }
 
-        /// <param name="choices">강화 표 줄 번호(앞에서 count개).</param>
-        /// <param name="stages">강화 표 줄마다 지금 단계.</param>
+        /// <param name="choices">선택지 값(앞에서 count개). describe로 강화 줄 · 패시브 줄 · 대체 보상으로 푼다.</param>
+        /// <param name="upgradeStages">강화 표 줄마다 지금 단계.</param>
+        /// <param name="passiveStages">패시브 표 줄마다 지금 단계(0 = 안 가짐).</param>
         /// <param name="pending">남은 레벨업 수(지금 것 포함). 0이면 창을 닫는다.</param>
-        public void Render(int pending, int[] choices, int count, int[] stages, UpgradeTable table)
+        public void Render(int pending, int[] choices, int count, Func<int, LevelUpOption> describe, int[] upgradeStages, UpgradeTable table, int[] passiveStages, PassiveTable passiveTable)
         {
-            bool open = pending > 0 && count > 0 && table != null;
+            bool open = pending > 0 && count > 0 && table != null && describe != null;
             if (!open)
             {
                 if (panel != null && panel.activeSelf) panel.SetActive(false);
@@ -111,14 +114,13 @@ namespace Myong.Unity
                 bool used = i < count;
                 if (card.button != null) card.button.gameObject.SetActive(used);
                 if (!used) continue;
-                int row = choices[i];
-                UpgradeTable.Row data = table.Rows[row];
-                int stage = row < stages.Length ? stages[row] : 0;
-                if (card.title != null) card.title.text = Text.Get(data.nameKey);
-                if (card.description != null) card.description.text = Text.Get(data.descriptionKey, FormatValue(data.op, data.value));
-                if (card.stage != null) card.stage.text = Text.Get("ui.levelup.stage", stage + 1, data.maxStage);
+                int option = choices[i];
+                LevelUpOption o = describe(option);
+                if (o.Kind == LevelUpOptionKind.Upgrade) ShowUpgrade(card, table.Rows[o.Row], o.Row < upgradeStages.Length ? upgradeStages[o.Row] : 0);
+                else if (o.Kind == LevelUpOptionKind.Passive && passiveTable != null) ShowPassive(card, passiveTable.Rows[o.Row], o.Row < passiveStages.Length ? passiveStages[o.Row] : 0);
+                else ShowFallback(card, passiveTable);
                 if (card.key != null) card.key.text = Text.Get("ui.levelup.key", i + 1);
-                if (i < shownRows.Length) shownRows[i] = row;
+                if (i < shownRows.Length) shownRows[i] = option;
             }
             shownCount = count;
             shownPending = pending;
@@ -129,6 +131,38 @@ namespace Myong.Unity
             {
                 EventSystem.current.SetSelectedGameObject(cards[0].button.gameObject);
             }
+        }
+
+        static void ShowUpgrade(Card card, UpgradeTable.Row data, int stage)
+        {
+            if (card.title != null) card.title.text = Text.Get(data.nameKey);
+            if (card.description != null) card.description.text = Text.Get(data.descriptionKey, FormatValue(data.op, data.value));
+            if (card.stage != null) card.stage.text = Text.Get("ui.levelup.stage", stage + 1, data.maxStage);
+            if (card.kind != null) card.kind.text = Text.Get("ui.levelup.kind.upgrade");
+        }
+
+        // 패시브 카드: 이름 · 설명(효과마다 한 단계 값이 {0}, {1}…) · 고른 뒤의 단계 · 새 것인지.
+        static void ShowPassive(Card card, PassiveTable.Row data, int stage)
+        {
+            int n = data.effects != null ? data.effects.Count : 0;
+            var values = new object[n];
+            for (int e = 0; e < n; e++) values[e] = FormatValue(data.effects[e].op, data.effects[e].value);
+            if (card.title != null) card.title.text = Text.Get(data.nameKey);
+            if (card.description != null) card.description.text = Text.Get(data.descriptionKey, values);
+            if (card.stage != null) card.stage.text = Text.Get("ui.levelup.stage", stage + 1, data.maxStage);
+            if (card.kind != null) card.kind.text = stage == 0 ? Text.Get("ui.levelup.kind.passive_new") : Text.Get("ui.levelup.kind.passive");
+        }
+
+        // 대체 보상 카드(고를 것이 다 떨어졌을 때): 이름 · 설명({0} = 회복량), 단계 없음.
+        static void ShowFallback(Card card, PassiveTable passiveTable)
+        {
+            string nameKey = passiveTable != null ? passiveTable.FallbackNameKey : string.Empty;
+            string descriptionKey = passiveTable != null ? passiveTable.FallbackDescriptionKey : string.Empty;
+            float heal = passiveTable != null ? passiveTable.FallbackHeal : 0f;
+            if (card.title != null) card.title.text = string.IsNullOrEmpty(nameKey) ? string.Empty : Text.Get(nameKey);
+            if (card.description != null) card.description.text = string.IsNullOrEmpty(descriptionKey) ? string.Empty : Text.Get(descriptionKey, heal.ToString("0.#", CultureInfo.InvariantCulture));
+            if (card.stage != null) card.stage.text = string.Empty;
+            if (card.kind != null) card.kind.text = Text.Get("ui.levelup.kind.reward");
         }
 
         /// <summary>한 단계 값을 설명의 {0}에 넣을 모양으로: 더하기 = +1, 곱하기 = -12% / +25%.</summary>

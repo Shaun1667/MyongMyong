@@ -34,3 +34,32 @@ ui.gameover.level,레벨 {0},Level {0}
 ui.gameover.kills,처치 {0},Kills {0}
 ui.gameover.restart,다시 시작,Restart
 ui.gameover.hint,"클릭 · Enter · 패드로 다시 시작","Click, Enter, or gamepad to restart"
+# 레벨업 카드 종류 (1-9)
+ui.levelup.kind.upgrade,무기 강화,Weapon
+ui.levelup.kind.passive,패시브,Passive
+ui.levelup.kind.passive_new,새 패시브,New passive
+ui.levelup.kind.reward,보상,Reward
+# HUD 패시브 단계
+ui.hud.passive.stage,{0},{0}
+# 패시브 (PassiveTable의 nameKey · descriptionKey · shortKey, {0} = 한 단계 값)
+passive.move_speed.name,가벼운 발,Light Feet
+passive.move_speed.desc,이동 속도 {0},Move speed {0}
+passive.move_speed.short,발,FT
+passive.max_health.name,튼튼한 몸,Sturdy Body
+passive.max_health.desc,최대 체력 {0},Max health {0}
+passive.max_health.short,체,HP
+passive.pickup_radius.name,자석,Magnet
+passive.pickup_radius.desc,줍는 반경 {0},Pickup radius {0}
+passive.pickup_radius.short,자,MG
+passive.regen.name,회복의 숨,Second Wind
+passive.regen.desc,초당 체력 재생 {0},Health regen {0}/s
+passive.regen.short,숨,RG
+passive.armor.name,두꺼운 옷,Thick Coat
+passive.armor.desc,받는 피해 {0},Damage taken {0}
+passive.armor.short,옷,AR
+passive.growth.name,배움,Fast Learner
+passive.growth.desc,경험치 {0},Experience {0}
+passive.growth.short,배,XP
+# 대체 보상 (PassiveTable의 fallback 키, {0} = 회복량)
+reward.heal.name,간식,Snack
+reward.heal.desc,체력 {0} 회복,Restore {0} health

@@ -18,6 +18,7 @@ namespace Myong.Editor
         public const string WeaponTablePath = Folder + "/WeaponTable.asset";
         public const string ExperienceTablePath = Folder + "/ExperienceTable.asset";
         public const string UpgradeTablePath = Folder + "/UpgradeTable.asset";
+        public const string PassiveTablePath = Folder + "/PassiveTable.asset";
         public const string JoystickTuningPath = Folder + "/JoystickTuning.asset";
         public const string RunTuningPath = Folder + "/RunTuning.asset";
 
@@ -99,8 +100,20 @@ namespace Myong.Editor
             ("multishot", Myong.Core.StatTarget.ShotsPerVolley, Myong.Core.StatOp.Add, 1f, 3, InitialWeaponId),
             ("pierce", Myong.Core.StatTarget.Pierce, Myong.Core.StatOp.Add, 1f, 3, InitialWeaponId),
             ("bullet_speed", Myong.Core.StatTarget.BulletSpeed, Myong.Core.StatOp.Multiply, 1.15f, 5, InitialWeaponId),
-            ("move_speed", Myong.Core.StatTarget.MoveSpeed, Myong.Core.StatOp.Multiply, 1.08f, 5, ""),
-            ("pickup_radius", Myong.Core.StatTarget.PickupRadius, Myong.Core.StatOp.Multiply, 1.3f, 5, ""),
+            // move_speed · pickup_radius는 1-9에서 패시브 표로 옮김(강화 표 = 무기 강화)
+        };
+
+        // 패시브 첫 값 (BALANCE.md와 같은 값. 기준은 에셋) — 한 줄 = id · 그림 ID · 효과(단계마다) · 최대 단계
+        const int InitialMaxPassives = 6;
+        const float InitialFallbackHeal = 30f;
+        public static readonly (string id, Myong.Core.StatTarget target, Myong.Core.StatOp op, float value, int maxStage)[] InitialPassives =
+        {
+            ("move_speed", Myong.Core.StatTarget.MoveSpeed, Myong.Core.StatOp.Multiply, 1.08f, 5),
+            ("max_health", Myong.Core.StatTarget.MaxHealth, Myong.Core.StatOp.Add, 20f, 5),
+            ("pickup_radius", Myong.Core.StatTarget.PickupRadius, Myong.Core.StatOp.Multiply, 1.3f, 5),
+            ("regen", Myong.Core.StatTarget.HealthRegen, Myong.Core.StatOp.Add, 0.2f, 5),
+            ("armor", Myong.Core.StatTarget.DamageTaken, Myong.Core.StatOp.Multiply, 0.92f, 5),
+            ("growth", Myong.Core.StatTarget.ExperienceGain, Myong.Core.StatOp.Multiply, 1.1f, 5),
         };
 
         [MenuItem("Myong/Setup/Create Data Assets", priority = 11)]
@@ -219,6 +232,19 @@ if (AssetDatabase.LoadAssetAtPath<WeaponTable>(WeaponTablePath) == null)
                 AssetDatabase.CreateAsset(asset, UpgradeTablePath);
             }
 
+            if (AssetDatabase.LoadAssetAtPath<PassiveTable>(PassiveTablePath) == null)
+            {
+                var asset = ScriptableObject.CreateInstance<PassiveTable>();
+                var so = new SerializedObject(asset);
+                WritePassiveRows(so);
+                so.FindProperty("maxOwned").intValue = InitialMaxPassives;
+                so.FindProperty("fallbackHeal").floatValue = InitialFallbackHeal;
+                so.FindProperty("fallbackNameKey").stringValue = "reward.heal.name";
+                so.FindProperty("fallbackDescriptionKey").stringValue = "reward.heal.desc";
+                so.ApplyModifiedPropertiesWithoutUndo();
+                AssetDatabase.CreateAsset(asset, PassiveTablePath);
+            }
+
             if (AssetDatabase.LoadAssetAtPath<JoystickTuning>(JoystickTuningPath) == null)
             {
                 var asset = ScriptableObject.CreateInstance<JoystickTuning>();
@@ -245,6 +271,30 @@ if (AssetDatabase.LoadAssetAtPath<WeaponTable>(WeaponTablePath) == null)
             AssetDatabase.SaveAssets();
         }
     
+
+        /// <summary>패시브 표의 줄에 첫 값을 쓴다(효과 하나씩, 글 키 = passive.&lt;id&gt;.name · .desc · .short, 그림 ID = passive_&lt;id&gt;).</summary>
+        public static void WritePassiveRows(SerializedObject so)
+        {
+            var rows = so.FindProperty("rows");
+            rows.arraySize = InitialPassives.Length;
+            for (int i = 0; i < InitialPassives.Length; i++)
+            {
+                var p = InitialPassives[i];
+                var row = rows.GetArrayElementAtIndex(i);
+                row.FindPropertyRelative("id").stringValue = p.id;
+                row.FindPropertyRelative("nameKey").stringValue = "passive." + p.id + ".name";
+                row.FindPropertyRelative("descriptionKey").stringValue = "passive." + p.id + ".desc";
+                row.FindPropertyRelative("shortKey").stringValue = "passive." + p.id + ".short";
+                row.FindPropertyRelative("iconId").stringValue = "passive_" + p.id;
+                row.FindPropertyRelative("maxStage").intValue = p.maxStage;
+                var effects = row.FindPropertyRelative("effects");
+                effects.arraySize = 1;
+                var effect = effects.GetArrayElementAtIndex(0);
+                effect.FindPropertyRelative("target").intValue = (int)p.target;
+                effect.FindPropertyRelative("op").intValue = (int)p.op;
+                effect.FindPropertyRelative("value").floatValue = p.value;
+            }
+        }
 
         /// <summary>적 표 한 줄에 첫 값을 쓴다.</summary>
         public static void WriteEnemyRow(SerializedProperty row, (string id, float moveSpeed, float radius, float maxHealth, int experience, float contactDamage, string visualId) e)

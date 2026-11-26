@@ -53,6 +53,7 @@ namespace Myong.Editor
                 new Section { Title = "적", Draw = DrawEnemies },
                 new Section { Title = "무기", Draw = DrawWeapons },
                 new Section { Title = "경험치 / 레벨", Draw = DrawExperience },
+                new Section { Title = "패시브", Draw = DrawPassives },
                 new Section { Title = "텍스트", Draw = DrawText },
             };
         }
@@ -311,7 +312,7 @@ namespace Myong.Editor
                 int row = root.DebugChoiceRow(i);
                 using (new EditorGUILayout.HorizontalScope())
                 {
-                    EditorGUILayout.LabelField($"선택지 {i + 1}", $"{root.DebugUpgradeId(row)}  {root.DebugUpgradeStage(row)} → {root.DebugUpgradeStage(row) + 1} / {root.DebugUpgradeMaxStage(row)}");
+                    EditorGUILayout.LabelField($"선택지 {i + 1}", ChoiceLabel(root, i));
                     if (GUILayout.Button(StateChange + "고르기", GUILayout.Width(110f))) root.DebugPressCard(i);
                 }
             }
@@ -342,6 +343,49 @@ namespace Myong.Editor
                 }
             }
             if (GUILayout.Button(StateChange + "강화 모두 초기화")) root.DebugResetUpgrades();
+        }
+
+        static string ChoiceLabel(GameRoot root, int index)
+        {
+            LevelUpOption o = root.DebugChoiceOption(index);
+            switch (o.Kind)
+            {
+                case LevelUpOptionKind.Upgrade:
+                    return $"무기 강화 {root.DebugUpgradeId(o.Row)}  {root.DebugUpgradeStage(o.Row)} → {root.DebugUpgradeStage(o.Row) + 1} / {root.DebugUpgradeMaxStage(o.Row)}";
+                case LevelUpOptionKind.Passive:
+                    return $"패시브 {root.DebugPassiveId(o.Row)}  {root.DebugPassiveStage(o.Row)} → {root.DebugPassiveStage(o.Row) + 1} / {root.DebugPassiveMaxStage(o.Row)}";
+                default:
+                    return "대체 보상 (체력 회복)";
+            }
+        }
+
+        void DrawPassives(GameRoot root)
+        {
+            EditorGUILayout.LabelField("가진 패시브", $"{root.DebugPassiveOwnedCount} / {root.DebugPassiveMaxOwned}  (HUD 아이콘 {root.DebugPassiveHudShown})");
+            for (int i = 0; i < root.DebugPassiveOwnedCount; i++)
+            {
+                int row = root.DebugPassiveOwnedRow(i);
+                EditorGUILayout.LabelField($"  {i + 1}. {root.DebugPassiveId(row)}", $"{root.DebugPassiveStage(row)} / {root.DebugPassiveMaxStage(row)}");
+            }
+            EditorGUILayout.LabelField("플레이어(패시브 반영)", $"이동 {root.DebugMoveSpeed:0.##} · 반경 {root.DebugPickupRadius:0.##} · 최대 체력 {root.DebugPlayerMaxHealth:0.#}");
+            EditorGUILayout.LabelField(" ", $"재생 {root.DebugHealthRegen:0.##}/초 · 받는 피해 x{root.DebugDamageTakenScale:0.###} · 경험치 x{root.DebugExperienceGain:0.###}");
+            EditorGUILayout.LabelField("회복 · 대체 보상", $"회복 합 {root.DebugHealedTotal:0.#} · 대체 보상 {root.DebugFallbackRewardsTaken}번");
+
+            EditorGUILayout.LabelField("패시브 표 (단계 / 최대)");
+            for (int row = 0; row < root.DebugPassiveRowCount; row++)
+            {
+                using (new EditorGUILayout.HorizontalScope())
+                {
+                    int stage = root.DebugPassiveStage(row);
+                    int max = root.DebugPassiveMaxStage(row);
+                    EditorGUILayout.LabelField("  " + root.DebugPassiveId(row), stage > 0 ? $"{stage} / {max}" : $"- / {max}");
+                    using (new EditorGUI.DisabledScope(!root.DebugPassiveOfferable(row)))
+                    {
+                        if (GUILayout.Button(StateChange + (stage > 0 ? "단계 올리기" : "패시브 주기"), GUILayout.Width(150f))) root.DebugApplyPassive(row);
+                    }
+                }
+            }
+            EditorGUILayout.LabelField("(강화 · 패시브 모두 풀기 = 경험치 / 레벨 섹션의 [강화 모두 초기화])");
         }
 
         void DrawText(GameRoot root)

@@ -96,6 +96,18 @@ namespace Myong.Core
         /// <summary>강화 값 칸(Stats 참고): 더한 값 합 · 곱한 값 곱.</summary>
         public float[] StatAdd = new float[StatTargets.Count];
         public float[] StatMul = new float[StatTargets.Count];
+        /// <summary>패시브 표 줄마다 단계(0 = 안 가짐).</summary>
+        public int[] PassiveStages = new int[0];
+        /// <summary>가진 패시브(패시브 표 줄 번호)를 얻은 순서대로. 앞에서 PassiveSlotCount개만 쓴다(HUD 아이콘 줄).</summary>
+        public int[] PassiveSlots = new int[0];
+        public int PassiveSlotCount;
+        /// <summary>경험치 배율로 생긴 소수 부분(다음 젬에 더한다).</summary>
+        public float ExperienceCarry;
+        /// <summary>이 판에서 회복한 체력 합(재생 · 대체 보상).</summary>
+        public float HealedTotal;
+        /// <summary>대체 보상(고를 것이 다 떨어졌을 때)을 받은 수.</summary>
+        public int FallbackRewardsTaken;
+
 
         /// <summary>판이 어떻게 끝났는지(진행 중 = Playing). 끝나면 Step이 아무것도 하지 않는다.</summary>
         public RunOutcome Outcome;

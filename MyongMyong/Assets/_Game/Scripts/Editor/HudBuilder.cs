@@ -25,6 +25,7 @@ namespace Myong.Editor
         const int CardTitleFontSize = 22;
         const int BodyFontSize = 16;
         const int KeyFontSize = 18;
+        const int KindFontSize = 14;
 
         static readonly Color BarBack = new Color(0.08f, 0.1f, 0.14f, 0.85f);
         static readonly Color BarFill = new Color(0.4f, 0.82f, 1f, 1f);
@@ -108,6 +109,10 @@ namespace Myong.Editor
                 Place(key, new Vector2(0f, 1f), new Vector2(0f, 1f), new Vector2(0f, 1f), new Vector2(10f, -8f), new Vector2(60f, 24f));
                 var keyText = Label(key.gameObject, KeyFontSize, TextAnchor.UpperLeft, TitleColor);
 
+                var kind = Child(card, "Kind");
+                Place(kind, new Vector2(1f, 1f), new Vector2(1f, 1f), new Vector2(1f, 1f), new Vector2(-10f, -10f), new Vector2(130f, 20f));
+                var kindText = Label(kind.gameObject, KindFontSize, TextAnchor.UpperRight, StageColor);
+
                 var name = Child(card, "Name");
                 Place(name, new Vector2(0f, 1f), new Vector2(1f, 1f), new Vector2(0.5f, 1f), new Vector2(0f, -40f), new Vector2(-16f, 32f));
                 var nameText = Label(name.gameObject, CardTitleFontSize, TextAnchor.MiddleCenter, Color.white);
@@ -126,12 +131,69 @@ namespace Myong.Editor
                 element.FindPropertyRelative("description").objectReferenceValue = descriptionText;
                 element.FindPropertyRelative("stage").objectReferenceValue = stageText;
                 element.FindPropertyRelative("key").objectReferenceValue = keyText;
+                element.FindPropertyRelative("kind").objectReferenceValue = kindText;
             }
             so.ApplyModifiedPropertiesWithoutUndo();
             // 창은 Play 중 레벨업 때만 보인다(LevelUpView가 켠다).
             panel.gameObject.SetActive(false);
 
             return (hud, view);
+        }
+
+        // 가진 패시브 아이콘 줄(표시만, HUD 단위 = 기준 해상도 도트)
+        const float PassiveIconSize = 28f;
+        const float PassiveIconGap = 4f;
+        const float PassiveRowTop = 56f; // 왼쪽 위 라벨(HelloLabel) 아래
+        const int PassiveLetterFontSize = 14;
+        const int PassiveStageFontSize = 11;
+        static readonly Color PassiveFrame = new Color(0.08f, 0.1f, 0.14f, 0.85f);
+
+        /// <summary>
+        /// 가진 패시브 아이콘 줄(화면 왼쪽 위, 얻은 순서대로 오른쪽으로). 칸 수 = slotCount(PassiveTable의 최대 개수).
+        /// 칸마다 테두리 · 단색 바탕 · 그림 · 짧은 글 · 단계. 레벨업 · 판 끝 창보다 아래(레벨업 창 앞 형제). Build 다음에 부른다.
+        /// </summary>
+        public static PassiveHud BuildPassives(GameObject hudRoot, int slotCount)
+        {
+            var row = Child(hudRoot.transform, "Passives");
+            Place(row, new Vector2(0f, 1f), new Vector2(0f, 1f), new Vector2(0f, 1f), new Vector2(Padding, -PassiveRowTop), new Vector2(slotCount * (PassiveIconSize + PassiveIconGap), PassiveIconSize));
+            var levelUp = hudRoot.transform.Find("LevelUp");
+            if (levelUp != null && row.GetSiblingIndex() > levelUp.GetSiblingIndex()) row.SetSiblingIndex(levelUp.GetSiblingIndex());
+            var hud = GetOrAdd<PassiveHud>(row.gameObject);
+            var so = new SerializedObject(hud);
+            var slots = so.FindProperty("slots");
+            slots.arraySize = slotCount;
+            for (int i = 0; i < slotCount; i++)
+            {
+                var slot = Child(row, "Slot" + (i + 1));
+                Place(slot, new Vector2(0f, 1f), new Vector2(0f, 1f), new Vector2(0f, 1f), new Vector2(i * (PassiveIconSize + PassiveIconGap), 0f), new Vector2(PassiveIconSize, PassiveIconSize));
+                Image(slot.gameObject, PassiveFrame, false);
+                var fill = Child(slot, "Fill");
+                Place(fill, Vector2.zero, Vector2.one, new Vector2(0.5f, 0.5f), Vector2.zero, new Vector2(-4f, -4f));
+                var fillImage = Image(fill.gameObject, Color.white, false);
+                var icon = Child(slot, "Icon");
+                Place(icon, Vector2.zero, Vector2.one, new Vector2(0.5f, 0.5f), Vector2.zero, new Vector2(-4f, -4f));
+                var iconImage = Image(icon.gameObject, Color.white, false);
+                iconImage.preserveAspect = true;
+                var letter = Child(slot, "Letter");
+                Stretch(letter);
+                var letterText = Label(letter.gameObject, PassiveLetterFontSize, TextAnchor.MiddleCenter, Color.white);
+                var stage = Child(slot, "Stage");
+                Place(stage, new Vector2(1f, 0f), new Vector2(1f, 0f), new Vector2(1f, 0f), new Vector2(1f, -1f), new Vector2(PassiveIconSize, 14f));
+                var stageText = Label(stage.gameObject, PassiveStageFontSize, TextAnchor.LowerRight, TitleColor);
+
+                var element = slots.GetArrayElementAtIndex(i);
+                element.FindPropertyRelative("root").objectReferenceValue = slot.gameObject;
+                element.FindPropertyRelative("background").objectReferenceValue = fillImage;
+                element.FindPropertyRelative("icon").objectReferenceValue = iconImage;
+                element.FindPropertyRelative("letter").objectReferenceValue = letterText;
+                element.FindPropertyRelative("stage").objectReferenceValue = stageText;
+                // 가진 것이 생길 때만 보인다(PassiveHud가 켜다).
+                slot.gameObject.SetActive(false);
+            }
+            // 칸이 줄었으면 남는 칸을 감춘다(지우지 않음).
+            for (int i = slotCount; i < row.childCount; i++) row.GetChild(i).gameObject.SetActive(false);
+            so.ApplyModifiedPropertiesWithoutUndo();
+            return hud;
         }
 
         const int TimerFontSize = 22;

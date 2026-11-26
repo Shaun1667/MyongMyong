@@ -16,6 +16,14 @@ namespace Myong.Core
         Pierce = 5,
         BulletSpeed = 6,
         Range = 7,
+        /// <summary>최대 체력(기본 = PlayerTuning). 늘면 지금 체력도 같은 만큼 는다.</summary>
+        MaxHealth = 8,
+        /// <summary>초당 체력 재생(기본 0).</summary>
+        HealthRegen = 9,
+        /// <summary>받는 피해 배율(기본 1). 방어 = 곱하기 1 미만.</summary>
+        DamageTaken = 10,
+        /// <summary>젬 경험치 배율(기본 1).</summary>
+        ExperienceGain = 11,
     }
 
     /// <summary>강화 한 단계의 연산. 실제 값 = (기본 + 더한 값 합) × 곱한 값 곱.</summary>
@@ -28,10 +36,24 @@ namespace Myong.Core
     public static class StatTargets
     {
         /// <summary>StatTarget 수(배열 크기). 새 대상을 더하면 같이 늘린다.</summary>
-        public const int Count = 8;
+        public const int Count = 12;
 
-        /// <summary>플레이어 쪽 값(무기와 상관없음).</summary>
-        public static bool IsPlayerStat(StatTarget target) => target == StatTarget.MoveSpeed || target == StatTarget.PickupRadius;
+        /// <summary>플레이어 쪽 값(무기와 상관없음). 패시브는 이 값만 바꾼다.</summary>
+        public static bool IsPlayerStat(StatTarget target)
+        {
+            switch (target)
+            {
+                case StatTarget.MoveSpeed:
+                case StatTarget.PickupRadius:
+                case StatTarget.MaxHealth:
+                case StatTarget.HealthRegen:
+                case StatTarget.DamageTaken:
+                case StatTarget.ExperienceGain:
+                    return true;
+                default:
+                    return false;
+            }
+        }
 
         public static bool IsValid(StatTarget target) => (int)target >= 0 && (int)target < Count;
     }
@@ -190,11 +212,18 @@ namespace Myong.Core
         /// <summary>강화 한 단계를 건다. 연산만 보고 대상 필드의 칸에 더하거나 곱한다(강화 종류별 분기 없음).</summary>
         public static void Apply(World world, in UpgradeData upgrade)
         {
-            int i = Index(upgrade.WeaponKind, upgrade.Target);
-            if (upgrade.Op == StatOp.Add) world.StatAdd[i] += upgrade.Value;
-            else world.StatMul[i] *= upgrade.Value;
+            Apply(world, upgrade.WeaponKind, upgrade.Target, upgrade.Op, upgrade.Value);
         }
 
+        /// <summary>효과 하나를 건다(강화 · 패시브가 같은 길). weaponKind -1 = 판 전체.</summary>
+        public static void Apply(World world, int weaponKind, StatTarget target, StatOp op, float value)
+        {
+            int i = Index(weaponKind, target);
+            if (op == StatOp.Add) world.StatAdd[i] += value;
+            else world.StatMul[i] *= value;
+        }
+
+        /// <summary>걸린 강화 · 패시브를 모두 푼다(단계 · 가진 패시브도 0).</summary>
         public static void Reset(World world)
         {
             for (int i = 0; i < world.StatAdd.Length; i++)
@@ -203,31 +232,54 @@ namespace Myong.Core
                 world.StatMul[i] = 1f;
             }
             for (int i = 0; i < world.UpgradeStages.Length; i++) world.UpgradeStages[i] = 0;
+            for (int i = 0; i < world.PassiveStages.Length; i++) world.PassiveStages[i] = 0;
+            world.PassiveSlotCount = 0;
         }
     }
 
     /// <summary>
-    /// 경험치 젬 · 레벨 · 레벨업 선택지. 상태는 World에만 두고 여기는 계산용 작업 공간(고정 크기 배열)만 든다 — 틱마다 할당하지 않는다.
+    /// 경험치 젬 · 레벨 · 레벨업 선택지(강화 표 + 패시브 표 + 대체 보상). 상태는 World에만 두고 여기는 계산용 작업 공간(고정 크기 배열)만 든다 — 틱마다 할당하지 않는다.
+    /// 선택지 번호(World.LevelUpChoices의 값): 0 .. 강화 줄 수-1 = 강화 줄, 그다음 패시브 줄 수만큼 = 패시브 줄, 마지막 하나 = 대체 보상.
     /// </summary>
     sealed class ProgressionRules
     {
         readonly ExperienceRulesData experience;
         readonly UpgradeRulesData upgrades;
+        readonly PassiveRulesData passives;
         readonly EnemyKindData[] enemyKinds;
         readonly float baseMoveSpeed;
         readonly float basePickupRadius;
+        readonly float baseMaxHealth;
         readonly float tickSeconds;
         readonly int[] candidates;
 
-        public ProgressionRules(ExperienceRulesData experience, UpgradeRulesData upgrades, EnemyRulesData enemies, PlayerTuningData player, int ticksPerSecond)
+        public ProgressionRules(ExperienceRulesData experience, UpgradeRulesData upgrades, PassiveRulesData passives, EnemyRulesData enemies, PlayerTuningData player, int ticksPerSecond)
         {
             this.experience = experience;
             this.upgrades = upgrades;
+            this.passives = passives;
             enemyKinds = enemies.Kinds;
             baseMoveSpeed = player.MoveSpeed;
             basePickupRadius = player.PickupRadius;
+            baseMaxHealth = player.MaxHealth;
             tickSeconds = 1f / ticksPerSecond;
-            candidates = new int[Math.Max(1, upgrades.Rows.Length)];
+            candidates = new int[Math.Max(1, upgrades.Rows.Length + passives.Rows.Length + 1)];
+        }
+
+        int UpgradeCount => upgrades.Rows.Length;
+
+        int PassiveCount => passives.Rows.Length;
+
+        /// <summary>대체 보상의 선택지 번호(강화 줄 수 + 패시브 줄 수).</summary>
+        public int FallbackOption => UpgradeCount + PassiveCount;
+
+        public int PassiveOption(int passiveRow) => UpgradeCount + passiveRow;
+
+        public LevelUpOption Describe(int option)
+        {
+            if (option < UpgradeCount) return new LevelUpOption(LevelUpOptionKind.Upgrade, option);
+            if (option < UpgradeCount + PassiveCount) return new LevelUpOption(LevelUpOptionKind.Passive, option - UpgradeCount);
+            return new LevelUpOption(LevelUpOptionKind.Fallback, 0);
         }
 
         public void InitWorld(World world, int weaponKinds)
@@ -236,6 +288,8 @@ namespace Myong.Core
             world.Gems = new GemState[experience.MaxGems];
             world.LevelUpChoices = new int[upgrades.ChoicesPerLevelUp];
             world.UpgradeStages = new int[upgrades.Rows.Length];
+            world.PassiveStages = new int[passives.Rows.Length];
+            world.PassiveSlots = new int[passives.Rows.Length];
             int cells = (weaponKinds + 1) * StatTargets.Count;
             world.StatAdd = new float[cells];
             world.StatMul = new float[cells];
@@ -245,6 +299,18 @@ namespace Myong.Core
         public float MoveSpeed(World world) => Math.Max(0f, Stats.Value(world, -1, StatTarget.MoveSpeed, baseMoveSpeed));
 
         public float PickupRadius(World world) => Math.Max(0f, Stats.Value(world, -1, StatTarget.PickupRadius, basePickupRadius));
+
+        /// <summary>강화 · 패시브가 걸린 최대 체력(기본 = PlayerTuning).</summary>
+        public float MaxHealth(World world) => Math.Max(0f, Stats.Value(world, -1, StatTarget.MaxHealth, baseMaxHealth));
+
+        /// <summary>초당 체력 재생(기본 0).</summary>
+        public float HealthRegen(World world) => Math.Max(0f, Stats.Value(world, -1, StatTarget.HealthRegen, 0f));
+
+        /// <summary>받는 피해 배율(기본 1, 방어 패시브가 줄인다).</summary>
+        public float DamageTakenScale(World world) => Math.Max(0f, Stats.Value(world, -1, StatTarget.DamageTaken, 1f));
+
+        /// <summary>젬 경험치 배율(기본 1).</summary>
+        public float ExperienceGain(World world) => Math.Max(0f, Stats.Value(world, -1, StatTarget.ExperienceGain, 1f));
 
         public int ToNext(int level) => experience.ToNext(level);
 
@@ -276,11 +342,20 @@ namespace Myong.Core
                     int value = g.Value;
                     world.GemsCollectedTotal++;
                     RemoveGem(world, i);
-                    GainExperience(world, value);
+                    GainGemExperience(world, value);
                     continue; // 맨 끝 젬이 이 자리로 왔다(아직 이번 틱에 안 움직인 젬)
                 }
                 i++;
             }
+        }
+
+        // 젬 경험치 × 경험치 배율. 소수 부분은 World.ExperienceCarry에 모아 다음 젬에 더한다(배율 1이면 그대로).
+        void GainGemExperience(World world, int value)
+        {
+            double exact = value * (double)ExperienceGain(world) + world.ExperienceCarry;
+            double whole = Math.Floor(exact);
+            world.ExperienceCarry = (float)(exact - whole);
+            GainExperience(world, whole > int.MaxValue ? int.MaxValue : (int)whole);
         }
 
         static void RemoveGem(World world, int index)
@@ -338,7 +413,7 @@ namespace Myong.Core
             if (!wasChoosing && world.PendingLevelUps > 0) RollChoices(world);
         }
 
-        bool Offerable(World world, int row)
+        bool UpgradeOfferable(World world, int row)
         {
             ref readonly UpgradeData u = ref upgrades.Rows[row];
             if (world.UpgradeStages[row] >= u.MaxStage) return false;
@@ -350,16 +425,28 @@ namespace Myong.Core
             return false;
         }
 
+        /// <summary>패시브 줄을 걸 수 있는지: 최대 단계 전이고, 가지지 않은 것이면 가진 종류 수가 최대보다 적을 때만.</summary>
+        public bool PassiveOfferable(World world, int row)
+        {
+            int stage = world.PassiveStages[row];
+            if (stage >= passives.Rows[row].MaxStage) return false;
+            return stage > 0 || world.PassiveSlotCount < passives.MaxOwned;
+        }
+
         /// <summary>
-        /// 레벨업 선택지를 레벨업 전용 난수 스트림으로 뽑는다: 걸 수 있는 강화(최대 단계 전 · 가진 무기) 중 겹치지 않게 최대 ChoicesPerLevelUp개.
-        /// 뽑을 것이 없으면 대기열을 비운다(레벨은 그대로 오른 채).
+        /// 레벨업 선택지를 레벨업 전용 난수 스트림으로 뽑는다: 걸 수 있는 강화(최대 단계 전 · 가진 무기)와 패시브(위 조건) 중 겹치지 않게 최대 ChoicesPerLevelUp개.
+        /// 후보 순서는 강화 표 → 패시브 표 순서(같은 시드 = 같은 선택지). 뽑을 것이 없으면 대체 보상(있으면) 하나, 그것도 없으면 대기열을 비운다(레벨은 그대로 오른 채).
         /// </summary>
         public void RollChoices(World world)
         {
             int n = 0;
             for (int r = 0; r < upgrades.Rows.Length; r++)
             {
-                if (Offerable(world, r)) candidates[n++] = r;
+                if (UpgradeOfferable(world, r)) candidates[n++] = r;
+            }
+            for (int r = 0; r < passives.Rows.Length; r++)
+            {
+                if (PassiveOfferable(world, r)) candidates[n++] = PassiveOption(r);
             }
             int pick = Math.Min(n, world.LevelUpChoices.Length);
             for (int i = 0; i < pick; i++)
@@ -370,6 +457,11 @@ namespace Myong.Core
                 candidates[j] = t;
                 world.LevelUpChoices[i] = candidates[i];
             }
+            if (pick == 0 && passives.FallbackHeal > 0f && world.LevelUpChoices.Length > 0)
+            {
+                world.LevelUpChoices[0] = FallbackOption;
+                pick = 1;
+            }
             world.LevelUpChoiceCount = pick;
             if (pick == 0) world.PendingLevelUps = 0;
         }
@@ -378,11 +470,20 @@ namespace Myong.Core
         public bool Choose(World world, int choice)
         {
             if (world.PendingLevelUps <= 0 || choice < 0 || choice >= world.LevelUpChoiceCount) return false;
-            int row = world.LevelUpChoices[choice];
-            ApplyUpgrade(world, row);
+            ApplyOption(world, world.LevelUpChoices[choice]);
             world.PendingLevelUps--;
             world.LevelUpChoiceCount = 0;
             if (world.PendingLevelUps > 0) RollChoices(world);
+            return true;
+        }
+
+        bool ApplyOption(World world, int option)
+        {
+            LevelUpOption o = Describe(option);
+            if (o.Kind == LevelUpOptionKind.Upgrade) return ApplyUpgrade(world, o.Row);
+            if (o.Kind == LevelUpOptionKind.Passive) return ApplyPassive(world, o.Row);
+            Heal(world, passives.FallbackHeal);
+            world.FallbackRewardsTaken++;
             return true;
         }
 
@@ -391,9 +492,52 @@ namespace Myong.Core
         {
             if (row < 0 || row >= upgrades.Rows.Length) return false;
             if (world.UpgradeStages[row] >= upgrades.Rows[row].MaxStage) return false;
+            float maxBefore = MaxHealth(world);
             Stats.Apply(world, upgrades.Rows[row]);
             world.UpgradeStages[row]++;
+            KeepMissingHealth(world, maxBefore);
             return true;
+        }
+
+        /// <summary>
+        /// 패시브 한 줄을 한 단계 올린다(처음이면 얻는다 — 가진 패시브 줄 맨 끝에 붙음). 효과는 연산만 보고 칸에 건다(종류별 분기 없음).
+        /// 최대 단계거나, 새 패시브인데 가진 종류 수가 이미 최대면 false.
+        /// </summary>
+        public bool ApplyPassive(World world, int row)
+        {
+            if (row < 0 || row >= passives.Rows.Length) return false;
+            if (!PassiveOfferable(world, row)) return false;
+            float maxBefore = MaxHealth(world);
+            foreach (var effect in passives.Rows[row].Effects) Stats.Apply(world, -1, effect.Target, effect.Op, effect.Value);
+            if (world.PassiveStages[row] == 0) world.PassiveSlots[world.PassiveSlotCount++] = row;
+            world.PassiveStages[row]++;
+            KeepMissingHealth(world, maxBefore);
+            return true;
+        }
+
+        // 최대 체력이 늘면 지금 체력도 같은 만큼 는다(잃은 체력은 그대로). 줄면 최대에 맞춰 자른다.
+        void KeepMissingHealth(World world, float maxBefore)
+        {
+            float maxAfter = MaxHealth(world);
+            if (maxAfter > maxBefore && !world.IsOver) world.Player.Health += maxAfter - maxBefore;
+            if (world.Player.Health > maxAfter) world.Player.Health = maxAfter;
+        }
+
+        /// <summary>체력을 amount만큼 채운다(최대 체력까지). 끝난 판이면 그대로.</summary>
+        public void Heal(World world, float amount)
+        {
+            if (world.IsOver || amount <= 0f) return;
+            float max = MaxHealth(world);
+            float before = world.Player.Health;
+            world.Player.Health = Math.Min(max, before + amount);
+            if (world.Player.Health > before) world.HealedTotal += world.Player.Health - before;
+        }
+
+        /// <summary>체력 재생 한 틱(초당 재생 × 틱 길이, 최대 체력까지).</summary>
+        public void StepRegen(World world)
+        {
+            float regen = HealthRegen(world);
+            if (regen > 0f && world.Player.Health < MaxHealth(world)) Heal(world, regen * tickSeconds);
         }
     }
 }

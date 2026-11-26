@@ -57,8 +57,8 @@ namespace Myong.Core
             world.Result = default;
         }
 
-        /// <summary>겹친 적이 있으면 피해 한 번(무적 시간 중 · 디버그 무적이면 없음). 체력이 0 이하가 되면 true.</summary>
-        public bool StepContact(World world)
+        /// <summary>겹친 적이 있으면 피해 한 번 × 받는 피해 배율(무적 시간 중 · 디버그 무적이면 없음). 체력이 0 이하가 되면 true.</summary>
+        public bool StepContact(World world, float damageScale = 1f)
         {
             ref PlayerState p = ref world.Player;
             if (world.PlayerInvincible || world.Tick < p.InvulnerableUntilTick) return false;
@@ -74,6 +74,7 @@ namespace Myong.Core
                 float reach = playerRadius + enemyKinds[e.Kind].Radius;
                 if ((e.Position - position).SqrMagnitude < reach * reach) damage = contact;
             }
+            damage *= damageScale;
             if (damage <= 0f) return false;
 
             Hurt(world, damage);

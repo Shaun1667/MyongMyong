@@ -1,0 +1,79 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: be8c08236cba1064fb2c5e57869a0ee1, type: 3}
+  m_Name: PassiveTable
+  m_EditorClassIdentifier: Myong.Unity::Myong.Unity.PassiveTable
+  rows:
+  - id: move_speed
+    nameKey: passive.move_speed.name
+    descriptionKey: passive.move_speed.desc
+    shortKey: passive.move_speed.short
+    iconId: passive_move_speed
+    effects:
+    - target: 0
+      op: 1
+      value: 1.08
+    maxStage: 5
+  - id: max_health
+    nameKey: passive.max_health.name
+    descriptionKey: passive.max_health.desc
+    shortKey: passive.max_health.short
+    iconId: passive_max_health
+    effects:
+    - target: 8
+      op: 0
+      value: 20
+    maxStage: 5
+  - id: pickup_radius
+    nameKey: passive.pickup_radius.name
+    descriptionKey: passive.pickup_radius.desc
+    shortKey: passive.pickup_radius.short
+    iconId: passive_pickup_radius
+    effects:
+    - target: 1
+      op: 1
+      value: 1.3
+    maxStage: 5
+  - id: regen
+    nameKey: passive.regen.name
+    descriptionKey: passive.regen.desc
+    shortKey: passive.regen.short
+    iconId: passive_regen
+    effects:
+    - target: 9
+      op: 0
+      value: 0.2
+    maxStage: 5
+  - id: armor
+    nameKey: passive.armor.name
+    descriptionKey: passive.armor.desc
+    shortKey: passive.armor.short
+    iconId: passive_armor
+    effects:
+    - target: 10
+      op: 1
+      value: 0.92
+    maxStage: 5
+  - id: growth
+    nameKey: passive.growth.name
+    descriptionKey: passive.growth.desc
+    shortKey: passive.growth.short
+    iconId: passive_growth
+    effects:
+    - target: 11
+      op: 1
+      value: 1.1
+    maxStage: 5
+  maxOwned: 6
+  fallbackHeal: 30
+  fallbackNameKey: reward.heal.name
+  fallbackDescriptionKey: reward.heal.desc

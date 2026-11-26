@@ -1,7 +1,7 @@
 # TASKS — MyongMyong (묭묭)
 
 ## 진행 요약 (2026-11-25 기준 — 새 세션은 여기부터 읽는다)
-**최신 (2026-11-25): Phase 0(0-1 ~ 0-5) · G-1 주인공 리깅 · 1-1 WASD 8방향 이동 · 1-2 적 스폰 · 추적 · 1-3 자동 사격 · 1-4 경험치 · 레벨업 · 1-5 접촉 피해 · 체력 · 게임 오버 · 1-6 가상 조이스틱 · 1-7 30분 생존 승리 · 타이머 HUD · 1-8 적 종류 추가(runner · brute · elite, 시간대 비중 · 정예 웨이브 · runner 떼 돌진) 구현 — 모두 플레이 확인 대기. EditMode 144개 모두 통과(1-8에서 16개 추가). Game 씬 `Assets/_Game/Scenes/Game.unity`. 브랜치 `phase1-enemy`. 테스트 EditMode 106개(1-6에서 13개 추가) — 2026-11-25 실행: 106개 모두 통과. 스폰 첫 시간대 1.5마리/초는 사용자 확정(2026-11-25). EditMode 128개 모두 통과. 다음: 사용자 플레이 확인 → 다음 항목 미정. 결정 (2026-11-26, 사용자 "묭묭 새 무기는 안넣는 걸로 할게"): 새 무기를 레벨업 선택지로 넣는 항목은 하지 않음. 결정 (2026-11-26, 사용자 "묭묭 1 2 3 4 5 순서대로 진행해줘" · "그렇게 진행해줘"): 다음 순서 1-8 적 종류 → 1-9 패시브 → 1-10 피격 · 사망 연출 → 1-11 30분 마무리(강한 적이 나와 판을 끝냄) → 1-12 영구 강화(코인).**
+**최신 (2026-11-25): Phase 0(0-1 ~ 0-5) · G-1 주인공 리깅 · 1-1 WASD 8방향 이동 · 1-2 적 스폰 · 추적 · 1-3 자동 사격 · 1-4 경험치 · 레벨업 · 1-5 접촉 피해 · 체력 · 게임 오버 · 1-6 가상 조이스틱 · 1-7 30분 생존 승리 · 타이머 HUD · 1-8 적 종류 추가(runner · brute · elite, 시간대 비중 · 정예 웨이브 · runner 떼 돌진) · 1-9 패시브 6종(레벨업 3지선다에 무기 강화와 함께, 최대 6, 다 떨어지면 체력 회복 카드, HUD 아이콘 줄) 구현 — 모두 플레이 확인 대기. EditMode 158개 모두 통과(1-8에서 16개 · 1-9에서 14개 추가). Game 씬 `Assets/_Game/Scenes/Game.unity`. 브랜치 `phase1-enemy`. 테스트 EditMode 106개(1-6에서 13개 추가) — 2026-11-25 실행: 106개 모두 통과. 스폰 첫 시간대 1.5마리/초는 사용자 확정(2026-11-25). EditMode 128개 모두 통과. 다음: 사용자 플레이 확인 → 다음 항목 미정. 결정 (2026-11-26, 사용자 "묭묭 새 무기는 안넣는 걸로 할게"): 새 무기를 레벨업 선택지로 넣는 항목은 하지 않음. 결정 (2026-11-26, 사용자 "묭묭 1 2 3 4 5 순서대로 진행해줘" · "그렇게 진행해줘"): 다음 순서 1-8 적 종류 → 1-9 패시브 → 1-10 피격 · 사망 연출 → 1-11 30분 마무리(강한 적이 나와 판을 끝냄) → 1-12 영구 강화(코인).**
 
 ## Phase 0. 세팅
 - [x] **0-0. 문서 3종** (2026-11-24 사용자 "MY_DEV_GUIDE 대입") — CLAUDE.md · GDD.md · TASKS.md
@@ -142,6 +142,18 @@
   - 테스트(2026-11-26 실행, EditMode 144): 모두 통과. 새 `EnemyKindTests`(15) · `ProjectRulesTests.SpawnTable_FirstPhaseIsTheConfirmedOne_AndChargersLeaveOffScreen` · 기존 SpawnTable 테스트에 mix · 웨이브 id 검사
   - 캡처: `Assets/Screenshots/p1_8_phase60_runner_mix.png` · `p1_8_swarm_and_elite.png` · `p1_8_phase180_brute_mix.png` · `p1_8_phase300_300enemies.png`
   - 확인 방법: Game 씬 Play → 1분이 지나면 작은 주황 적이 섞이고, 2분에 큰 진홍 정예가 하나 나와 처치하면 큰 젬, 2분 30초에 주황 떼가 한쪽에서 곧게 돌진해 지나가고, 3분부터 큰 남보라 적이 섞이면 정상. 디버그 창 판 시간 섹션으로 시간을 건너뛰고, 적 섹션에서 종류별 수 · 소환
+
+- [x] **1-9. 패시브 아이템** (2026-11-26 사용자 "묭묭 1 2 3 4 5 순서대로 진행해줘" — ② 패시브) — 플레이 확인 대기
+  - 결정 (2026-11-26, 사용자 "묭묭 새 무기는 안넣는 걸로 할게"): 새 무기는 레벨업 선택지에 넣지 않음 — 무기 쪽은 그대로
+  - 범위: 패시브 표 · 레벨업 선택지에 패시브 · 최대 6 · 대체 보상 · HUD 아이콘 줄 · 카드 종류 글 · 새 능력치(최대 체력 · 재생 · 받는 피해 · 경험치 배율) · 디버그 섹션. 새 그림 없음(단색 네모 + 글자)
+  - 구현: Core `Passives.cs`(StatEffect · PassiveData · PassiveRulesData · LevelUpOption) · `StatTarget` 4줄(MaxHealth · HealthRegen · DamageTaken · ExperienceGain) · `ProgressionRules`(후보 = 강화 표 → 패시브 표, 같은 레벨업 스트림, 칸이 차면 새 패시브 빠짐, 없으면 대체 보상, 경험치 배율 · 소수 넘기기, 재생, 최대 체력 늘면 체력도) · `HealthRules`(받는 피해 배율) · `World`(PassiveStages · PassiveSlots · ExperienceCarry · HealedTotal · FallbackRewardsTaken) · `Simulation`(8인자 생성자 · DescribeChoice · ApplyPassive 등) / Unity `PassiveTable` · `PassiveHud` · `LevelUpView`(종류 글 · 패시브 카드 · 대체 보상 카드) · `GameRoot` / Editor `DataSetup` · `HudBuilder.BuildPassives` · `GameSceneBuilder` · 디버그 창 "패시브" 섹션. strings 줄은 감독이 넣음
+  - 데이터: 새 `PassiveTable.asset`(6줄 · 최대 6 · 대체 보상 30) / `UpgradeTable.asset`에서 move_speed · pickup_radius 줄을 패시브로 옮김(5줄 = 무기 강화) — BALANCE 패시브 절
+  - 정한 것 (Claude, 확인 필요): 강화 표 = 무기 강화만, 이동 · 반경은 패시브 / 패시브는 플레이어 값만 / 한 단계 = 같은 효과 한 번 더 / 최대 체력이 늘면 지금 체력도 / 방어 = 받는 피해 배율 / 경험치 배율은 젬에만 / 대체 보상 = 카드 한 장(체력 30 회복) / HUD 왼쪽 위, 얻은 순서 / 키 `passive.<id>.name · .desc · .short` · `ui.levelup.kind.*` · `ui.hud.passive.stage` · `reward.heal.*` / 이제 안 쓰는 `upgrade.move_speed.*` · `upgrade.pickup_radius.*` 글은 strings.csv에 남겨 둠
+  - 디버그 창 "패시브" 섹션: 가진 패시브 · 단계 · 바뀐 플레이어 값 · 회복 합 · 대체 보상 수, [상태 변경] 패시브 주기 / 단계 올리기. 진입점 `GameRoot.DebugApplyPassive` (읽기 DebugPassiveXxx · DebugChoiceOption)
+  - 확인: 컴파일 0 · Build Game Scene 두 번 해시 같음(A48E820B17F8A880) · Play(시드 20261126): 첫 카드 [새 패시브 가벼운 발] · [새 패시브 자석] · [무기 강화 빠른 방아쇠], 고르면 이동 4.5 → 4.86 / 최대 체력 +40 → 지금 체력 +40, 재생 · 받는 피해 ×0.92 · HUD 아이콘 4 / 모두 최대 → 대체 보상 카드 1장 → 체력 +30 / 같은 시드 777 두 번 같은 선택지. 캡처(strings 줄은 그때 메모리 표에만): `Assets/Screenshots/p1_9_levelup_passive_cards_ko.png` · `p1_9_hud_passive_icons.png` · `p1_9_fallback_heal_card.png`
+  - 확인 못 함: 패시브가 들어간 뒤 균형(선택지 풀 7 → 11) · 영어 화면 · 디버그 창 버튼 직접 누르기 · 실제 입력 · 모바일 아이콘 크기(28도트) · HUD 단계 숫자 크기(11pt)
+  - 테스트(2026-11-26 실행, EditMode 158): 처음 156 통과 · 2 실패(strings.csv 줄 없음) → 감독이 넣은 뒤 재실행 158개 모두 통과. 새 `PassiveTests` 14
+  - 확인 방법: Game 씬 Play → 레벨업 카드 오른쪽 위에 "새 패시브" · "무기 강화"가 보이고, 패시브를 고르면 화면 왼쪽 위에 색 네모 + 글자 아이콘과 단계 숫자가 생기면 정상. 디버그 창 "패시브" 섹션에서 모두 최대로 만든 뒤 레벨업 바로 → "간식 체력 30 회복" 카드 한 장
 
 ## 다른 PC에서 할 일
 - Claude Hand 패키지(manifest.json)는 PC마다 `unity-install`로 넣는다.

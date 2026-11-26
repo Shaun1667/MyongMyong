@@ -195,6 +195,8 @@ namespace Myong.Editor
             SetupUtil.SetReference(gameRoot, "bulletView", bulletPool);
             SetupUtil.SetReference(gameRoot, "experienceTable", AssetDatabase.LoadAssetAtPath<ExperienceTable>(DataSetup.ExperienceTablePath));
             SetupUtil.SetReference(gameRoot, "upgradeTable", AssetDatabase.LoadAssetAtPath<UpgradeTable>(DataSetup.UpgradeTablePath));
+            var passiveTable = AssetDatabase.LoadAssetAtPath<PassiveTable>(DataSetup.PassiveTablePath);
+            SetupUtil.SetReference(gameRoot, "passiveTable", passiveTable);
             SetupUtil.SetReference(gameRoot, "gemView", gemPool);
             SetupUtil.SetReference(gameRoot, "healthBar", healthBar);
             SetupUtil.SetReference(gameRoot, "runTuning", AssetDatabase.LoadAssetAtPath<RunTuning>(DataSetup.RunTuningPath));
@@ -235,6 +237,8 @@ namespace Myong.Editor
             SetupUtil.SetReference(gameRoot, "experienceHud", experienceHud);
             SetupUtil.SetReference(gameRoot, "levelUpView", levelUpView);
             SetupUtil.SetReference(gameRoot, "timerHud", HudBuilder.BuildTimer(hud));
+            // 가진 패시브 아이콘 줄(칸 수 = 패시브 표의 최대 개수)
+            SetupUtil.SetReference(gameRoot, "passiveHud", HudBuilder.BuildPassives(hud, passiveTable != null ? passiveTable.MaxOwned : 0));
             SetupUtil.SetReference(gameRoot, "gameOverView", HudBuilder.BuildGameOver(hud));
             // 화면 가상 조이스틱(터치 · 에디터에서는 마우스) — 값은 Move 액션의 패드 왼스틱 자리로 들어간다
             var joystick = HudBuilder.BuildJoystick(hud, AssetDatabase.LoadAssetAtPath<JoystickTuning>(DataSetup.JoystickTuningPath));

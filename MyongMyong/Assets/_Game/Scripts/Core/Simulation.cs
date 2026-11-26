@@ -51,6 +51,7 @@ namespace Myong.Core
         readonly WeaponRulesData weapons;
         readonly ExperienceRulesData experience;
         readonly UpgradeRulesData upgrades;
+        readonly PassiveRulesData passives;
         readonly EnemyGrid enemyGrid;
         readonly EnemySeparation separation;
         readonly WeaponRules weaponRules;
@@ -82,6 +83,11 @@ namespace Myong.Core
         }
 
         public Simulation(int ticksPerSecond, PlayerTuningData player, EnemyRulesData enemies, WeaponRulesData weapons, ExperienceRulesData experience, UpgradeRulesData upgrades, RunRulesData run)
+            : this(ticksPerSecond, player, enemies, weapons, experience, upgrades, run, PassiveRulesData.None)
+        {
+        }
+
+        public Simulation(int ticksPerSecond, PlayerTuningData player, EnemyRulesData enemies, WeaponRulesData weapons, ExperienceRulesData experience, UpgradeRulesData upgrades, RunRulesData run, PassiveRulesData passives)
         {
             if (ticksPerSecond <= 0) throw new ArgumentOutOfRangeException(nameof(ticksPerSecond));
             TicksPerSecond = ticksPerSecond;
@@ -91,6 +97,7 @@ namespace Myong.Core
             this.weapons = weapons ?? throw new ArgumentNullException(nameof(weapons));
             this.experience = experience ?? throw new ArgumentNullException(nameof(experience));
             this.upgrades = upgrades ?? throw new ArgumentNullException(nameof(upgrades));
+            this.passives = passives ?? throw new ArgumentNullException(nameof(passives));
             foreach (var row in upgrades.Rows)
             {
                 if (row.WeaponKind >= weapons.Kinds.Length) throw new ArgumentOutOfRangeException(nameof(upgrades), "upgrade refers to a missing weapon kind");
@@ -98,7 +105,7 @@ namespace Myong.Core
             enemyGrid = new EnemyGrid(enemies.MaxAlive, enemies.MaxRadius);
             separation = new EnemySeparation(enemyGrid, enemies.MaxAlive);
             weaponRules = new WeaponRules(weapons, upgrades, enemies, enemyGrid, ticksPerSecond);
-            progression = new ProgressionRules(experience, upgrades, enemies, player, ticksPerSecond);
+            progression = new ProgressionRules(experience, upgrades, passives, enemies, player, ticksPerSecond);
             health = new HealthRules(enemies, player, ticksPerSecond);
             survivalTicks = RunClock.TicksOf(run.SurvivalSeconds, ticksPerSecond);
             waveStartTicks = new long[enemies.Waves.Length];
@@ -121,6 +128,8 @@ namespace Myong.Core
         public ExperienceRulesData Experience => experience;
 
         public UpgradeRulesData Upgrades => upgrades;
+
+        public PassiveRulesData Passives => passives;
 
         /// <summary>무기 종류의 기본 발사 간격(틱, 강화 없이). 초 × 초당 틱을 반올림, 최소 1.</summary>
         public int FireIntervalTicks(int weaponKind) => weaponRules.IntervalTicksOf(weaponKind);
@@ -184,7 +193,7 @@ namespace Myong.Core
         public float SurvivalSeconds => survivalTicks * TickSeconds;
 
         /// <summary>
-        /// 순서: 플레이어 이동 → 적 추적 → 적끼리 밀어내기 → 적 접촉 피해(체력 0이면 그 틱에서 판 끝) → 발사(사거리 안 가장 가까운 적) → 탄 이동 · 맞기
+        /// 순서: 플레이어 이동 → 적 추적 → 적끼리 밀어내기 → 적 접촉 피해 × 받는 피해 배율(체력 0이면 그 틱에서 판 끝) → 체력 재생 → 발사(사거리 안 가장 가까운 적) → 탄 이동 · 맞기
         /// → 젬 끌기 · 줍기(경험치 · 레벨) → 죽은 적 자리에 젬 떨어뜨리기 → 죽은 적 빼기 → 돌진하다 멀어진 적 빼기 → 스폰(시간대 비중 → 웨이브, 새 적 · 새 젬은 그 틱에는 움직이지 않는다)
         /// → 틱 + 1 → 생존 목표 틱에 닿았으면 승리(같은 틱에 체력 0이면 패배가 먼저).
         /// 레벨업 선택을 기다리는 동안(PendingLevelUps > 0)과 판이 끝난 뒤(IsOver)에는 아무것도 하지 않는다 — 틱도 멈춘다.
@@ -194,13 +203,14 @@ namespace Myong.Core
             if (world.IsOver || world.PendingLevelUps > 0) return;
             StepPlayer(world, input);
             StepEnemies(world);
-            if (health.StepContact(world))
+            if (health.StepContact(world, progression.DamageTakenScale(world)))
             {
                 // 죽은 틱: 나머지(발사 · 탄 · 젬 · 스폰)는 하지 않고, 이 틱까지 센 결과를 남긴다.
                 world.Tick++;
                 HealthRules.EndRun(world, RunOutcome.Defeat);
                 return;
             }
+            progression.StepRegen(world);
             weaponRules.Fire(world);
             weaponRules.StepBullets(world);
             progression.StepGems(world);
@@ -488,13 +498,47 @@ namespace Myong.Core
         public void FillHealth(World world)
         {
             if (world.IsOver) return;
-            world.Player.Health = health.MaxHealth;
+            world.Player.Health = progression.MaxHealth(world);
         }
 
         /// <summary>걸린 강화를 모두 푼다(디버그). 레벨 · 경험치는 그대로.</summary>
         public void ResetUpgrades(World world)
         {
             Stats.Reset(world);
+            float max = progression.MaxHealth(world);
+            if (world.Player.Health > max) world.Player.Health = max;
         }
+
+        // ---- 패시브 · 레벨업 선택지 ----
+
+        /// <summary>레벨업 선택지 값(World.LevelUpChoices)이 무엇인지: 강화 줄 · 패시브 줄 · 대체 보상.</summary>
+        public LevelUpOption DescribeChoice(int option) => progression.Describe(option);
+
+        /// <summary>패시브 표 row번째 줄의 선택지 값.</summary>
+        public int PassiveOption(int row) => progression.PassiveOption(row);
+
+        /// <summary>대체 보상의 선택지 값.</summary>
+        public int FallbackOption => progression.FallbackOption;
+
+        /// <summary>패시브 표의 row번째 줄을 한 단계 건다(없으면 얻음, 디버그). 최대 단계거나 새 패시브인데 칸이 다 찼으면 false.</summary>
+        public bool ApplyPassive(World world, int row) => progression.ApplyPassive(world, row);
+
+        /// <summary>지금 선택지에 나올 수 있는 패시브인지(최대 단계 전 · 새 것이면 칸이 남음).</summary>
+        public bool PassiveOfferable(World world, int row) => row >= 0 && row < passives.Rows.Length && progression.PassiveOfferable(world, row);
+
+        /// <summary>강화 · 패시브가 걸린 최대 체력.</summary>
+        public float MaxHealthOf(World world) => progression.MaxHealth(world);
+
+        /// <summary>초당 체력 재생.</summary>
+        public float HealthRegen(World world) => progression.HealthRegen(world);
+
+        /// <summary>받는 피해 배율(1 = 그대로).</summary>
+        public float DamageTakenScale(World world) => progression.DamageTakenScale(world);
+
+        /// <summary>젬 경험치 배율(1 = 그대로).</summary>
+        public float ExperienceGain(World world) => progression.ExperienceGain(world);
+
+        /// <summary>체력을 채운다(최대 체력까지, 디버그 · 나중의 보상).</summary>
+        public void Heal(World world, float amount) => progression.Heal(world, amount);
     }
 }

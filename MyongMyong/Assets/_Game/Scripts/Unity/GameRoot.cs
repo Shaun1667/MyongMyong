@@ -20,6 +20,7 @@ namespace Myong.Unity
         [SerializeField] WeaponTable weaponTable;
         [SerializeField] ExperienceTable experienceTable;
         [SerializeField] UpgradeTable upgradeTable;
+        [SerializeField] PassiveTable passiveTable;
         [SerializeField] RunTuning runTuning;
 
         [Header("Scene")]
@@ -34,6 +35,7 @@ namespace Myong.Unity
         [SerializeField] PlayerHealthBar healthBar;
         [SerializeField] GameOverView gameOverView;
         [SerializeField] RunTimerHud timerHud;
+        [SerializeField] PassiveHud passiveHud;
 
         [Header("Seed")]
         [Tooltip("Off: a new seed every run. On: always Fixed Seed.")]
@@ -47,6 +49,7 @@ namespace Myong.Unity
         double lastStepMilliseconds;
         float frameMillisecondsAverage;
         bool debugAutoChooseFirst;
+        Func<int, LevelUpOption> describeChoice;
 
         void Awake()
         {
@@ -66,7 +69,9 @@ namespace Myong.Unity
             ExperienceRulesData experienceRules = experienceTable != null ? experienceTable.ToRules() : ExperienceRulesData.None;
             UpgradeRulesData upgradeRules = upgradeTable != null ? upgradeTable.ToRules(weaponTable) : UpgradeRulesData.None;
             RunRulesData runRules = runTuning != null ? runTuning.ToRules() : RunRulesData.None;
-            simulation = new Simulation(simulationTuning.TicksPerSecond, playerTuning.ToData(), enemyRules, weaponRules, experienceRules, upgradeRules, runRules);
+            PassiveRulesData passiveRules = passiveTable != null ? passiveTable.ToRules() : PassiveRulesData.None;
+            simulation = new Simulation(simulationTuning.TicksPerSecond, playerTuning.ToData(), enemyRules, weaponRules, experienceRules, upgradeRules, runRules, passiveRules);
+            describeChoice = simulation.DescribeChoice;
             world = simulation.CreateWorld(seed);
             accumulator = 0f;
             if (enemyView != null) enemyView.Prepare(enemyRules.MaxAlive, enemyTable);
@@ -129,12 +134,13 @@ namespace Myong.Unity
             // 멈춰 있을 때는 마지막 틱 그대로(보간 없이) 그린다.
             float alpha = world.IsChoosingUpgrade || world.IsOver ? 1f : accumulator / tick;
             if (playerView != null) playerView.Render(world.Player, alpha, simulation.MoveSpeed(world), world.Tick);
-            if (healthBar != null) healthBar.Render(world.Player, alpha, simulation.MaxHealth);
+            if (healthBar != null) healthBar.Render(world.Player, alpha, simulation.MaxHealthOf(world));
             if (enemyView != null) enemyView.Render(world.Enemies, world.EnemyCount, alpha, world.Tick);
             if (bulletView != null) bulletView.Render(world.Bullets, world.BulletCount, alpha);
             if (gemView != null) gemView.Render(world.Gems, world.GemCount, alpha);
             if (experienceHud != null) experienceHud.Render(world.Level, world.Experience, simulation.ExperienceToNext(world.Level));
-            if (levelUpView != null) levelUpView.Render(world.PendingLevelUps, world.LevelUpChoices, world.LevelUpChoiceCount, world.UpgradeStages, upgradeTable);
+            if (levelUpView != null) levelUpView.Render(world.PendingLevelUps, world.LevelUpChoices, world.LevelUpChoiceCount, describeChoice, world.UpgradeStages, upgradeTable, world.PassiveStages, passiveTable);
+            if (passiveHud != null) passiveHud.Render(world.PassiveSlots, world.PassiveSlotCount, world.PassiveStages, passiveTable);
             if (timerHud != null) timerHud.Render(simulation.RunTicks(world), simulation.TicksPerSecond);
             if (gameOverView != null) gameOverView.Render(world.Result, simulation.SurvivedSeconds(world));
         }
@@ -388,11 +394,56 @@ namespace Myong.Unity
             simulation.ResetUpgrades(world);
         }
 
+        // ---- 패시브 ----
+
+        /// <summary>지금 선택지 i가 무엇인지(강화 줄 · 패시브 줄 · 대체 보상).</summary>
+        public LevelUpOption DebugChoiceOption(int index) => simulation.DescribeChoice(world.LevelUpChoices[index]);
+
+        public int DebugPassiveRowCount => passiveTable != null ? passiveTable.Rows.Count : 0;
+
+        public string DebugPassiveId(int row) => passiveTable != null && row >= 0 && row < passiveTable.Rows.Count ? passiveTable.Rows[row].id : string.Empty;
+
+        public int DebugPassiveStage(int row) => row >= 0 && row < world.PassiveStages.Length ? world.PassiveStages[row] : 0;
+
+        public int DebugPassiveMaxStage(int row) => passiveTable != null && row >= 0 && row < passiveTable.Rows.Count ? passiveTable.Rows[row].maxStage : 0;
+
+        /// <summary>가진 패시브 수 / 최대(PassiveTable).</summary>
+        public int DebugPassiveOwnedCount => world.PassiveSlotCount;
+
+        public int DebugPassiveMaxOwned => simulation.Passives.MaxOwned;
+
+        /// <summary>얻은 순서 i번째 패시브의 표 줄 번호.</summary>
+        public int DebugPassiveOwnedRow(int index) => world.PassiveSlots[index];
+
+        /// <summary>지금 선택지에 나올 수 있는 패시브인지.</summary>
+        public bool DebugPassiveOfferable(int row) => simulation.PassiveOfferable(world, row);
+
+        /// <summary>대체 보상을 받은 수 · 회복한 체력 합.</summary>
+        public int DebugFallbackRewardsTaken => world.FallbackRewardsTaken;
+
+        public float DebugHealedTotal => world.HealedTotal;
+
+        /// <summary>강화 · 패시브가 걸린 플레이어 값.</summary>
+        public float DebugHealthRegen => simulation.HealthRegen(world);
+
+        public float DebugDamageTakenScale => simulation.DamageTakenScale(world);
+
+        public float DebugExperienceGain => simulation.ExperienceGain(world);
+
+        /// <summary>HUD 패시브 줄에 지금 보이는 아이콘 수(표시 확인용).</summary>
+        public int DebugPassiveHudShown => passiveHud != null ? passiveHud.ShownCount : -1;
+
+        /// <summary>[상태 변경] 패시브 표의 row번째 줄을 주거나(없으면) 한 단계 올린다. 최대 단계 · 칸이 다 찼으면 false.</summary>
+        public bool DebugApplyPassive(int row)
+        {
+            return simulation.ApplyPassive(world, row);
+        }
+
         // ---- 체력 · 판 끝 ----
 
         public float DebugPlayerHealth => world.Player.Health;
 
-        public float DebugPlayerMaxHealth => simulation.MaxHealth;
+        public float DebugPlayerMaxHealth => simulation.MaxHealthOf(world);
 
         public bool DebugPlayerInvincible => world.PlayerInvincible;
 
