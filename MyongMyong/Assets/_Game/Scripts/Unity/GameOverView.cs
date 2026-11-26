@@ -20,6 +20,10 @@ namespace Myong.Unity
         [SerializeField] UnityEngine.UI.Text hint;
         [SerializeField] UnityEngine.UI.Button restartButton;
         [SerializeField] UnityEngine.UI.Text restartLabel;
+        [Tooltip("This run's coins and the wallet total (1-12).")]
+        [SerializeField] UnityEngine.UI.Text coins;
+        [SerializeField] UnityEngine.UI.Button shopButton;
+        [SerializeField] UnityEngine.UI.Text shopLabel;
         [Tooltip("Title color when the run is won (display only). Defeat keeps the label's own color.")]
         [SerializeField] Color victoryTitleColor = new Color(1f, 0.86f, 0.4f, 1f);
 
@@ -27,6 +31,11 @@ namespace Myong.Unity
 
         /// <summary>[다시 시작]을 눌렀다.</summary>
         public event Action RestartPressed;
+
+        /// <summary>[강화]를 눌렀다(1-12, 강화 화면을 연다).</summary>
+        public event Action ShopPressed;
+
+        long shownWallet = -1;
 
         bool textDirty = true;
 
@@ -40,9 +49,21 @@ namespace Myong.Unity
 
         public string ShownTime => time != null ? time.text : string.Empty;
 
+        /// <summary>지금 보이는 코인 글 · [강화] 버튼(확인용).</summary>
+        public string ShownCoins => coins != null ? coins.text : string.Empty;
+
+        public UnityEngine.UI.Button ShopButton => shopButton;
+
+        /// <summary>[다시 시작]을 고른 상태로(강화 화면을 닫은 뒤).</summary>
+        public void SelectRestart()
+        {
+            if (EventSystem.current != null && restartButton != null) EventSystem.current.SetSelectedGameObject(restartButton.gameObject);
+        }
+
         void Awake()
         {
             if (restartButton != null) restartButton.onClick.AddListener(() => RestartPressed?.Invoke());
+            if (shopButton != null) shopButton.onClick.AddListener(() => ShopPressed?.Invoke());
             if (title != null) defeatTitleColor = title.color;
             if (panel != null) panel.SetActive(false);
         }
@@ -55,6 +76,8 @@ namespace Myong.Unity
             SetFont(kills);
             SetFont(hint);
             SetFont(restartLabel);
+            SetFont(coins);
+            SetFont(shopLabel);
             Text.Changed += OnTextChanged;
         }
 
@@ -77,6 +100,18 @@ namespace Myong.Unity
         /// <param name="survivedSeconds">생존 시간(초).</param>
         public void Render(in RunResult result, float survivedSeconds)
         {
+            Render(result, survivedSeconds, -1);
+        }
+
+        /// <param name="survivedSeconds">생존 시간(초).</param>
+        /// <param name="walletCoins">지갑 합계(이번 판 코인을 더한 뒤). -1이면 코인 줄을 비운다.</param>
+        public void Render(in RunResult result, float survivedSeconds, long walletCoins)
+        {
+            if (walletCoins != shownWallet)
+            {
+                shownWallet = walletCoins;
+                textDirty = true;
+            }
             bool open = result.Outcome != RunOutcome.Playing;
             if (!open)
             {
@@ -100,6 +135,13 @@ namespace Myong.Unity
             if (kills != null) kills.text = Text.Get("ui.gameover.kills", result.EnemiesKilled);
             if (hint != null) hint.text = Text.Get("ui.gameover.hint");
             if (restartLabel != null) restartLabel.text = Text.Get("ui.gameover.restart");
+            if (coins != null)
+            {
+                if (walletCoins < 0) coins.text = string.Empty;
+                else if (result.DebugUsed) coins.text = Text.Get("ui.gameover.coins_debug", result.Coins, walletCoins);
+                else coins.text = Text.Get("ui.gameover.coins", result.Coins, walletCoins);
+            }
+            if (shopLabel != null) shopLabel.text = Text.Get("ui.gameover.shop");
             textDirty = false;
 
             // 패드 · Enter가 바로 되도록 버튼을 고른 상태로 둔다.

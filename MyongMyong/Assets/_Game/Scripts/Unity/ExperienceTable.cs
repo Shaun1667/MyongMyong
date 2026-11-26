@@ -26,6 +26,21 @@ namespace Myong.Unity
         [Tooltip("Gem visual key. With no sprite for it, a solid placeholder dot is drawn.")]
         [SerializeField] string gemVisualId;
 
+        [Tooltip("Most coins on the ground at once (the pool size). 0 = no coins. Coins are picked up like gems (same radius, speed and distance).")]
+        [SerializeField, Min(0)] int maxCoins;
+
+        [Tooltip("Coin visual key. With no sprite for it, a solid gold dot is drawn.")]
+        [SerializeField] string coinVisualId;
+
+        [Tooltip("Distance (units) a coin lands to the right of the dead enemy, so the gem dropped on the same spot does not hide it.")]
+        [SerializeField, Min(0f)] float coinDropOffset;
+
+        public float CoinDropOffset => coinDropOffset;
+
+        public int MaxCoins => maxCoins;
+
+        public string CoinVisualId => coinVisualId;
+
         public IReadOnlyList<int> ExperienceToNext => experienceToNext;
 
         public int ExtraPerLevel => extraPerLevel;
@@ -40,7 +55,7 @@ namespace Myong.Unity
 
         public ExperienceRulesData ToRules()
         {
-            return new ExperienceRulesData(experienceToNext.ToArray(), extraPerLevel, maxGems, pullSpeed, collectDistance);
+            return new ExperienceRulesData(experienceToNext.ToArray(), extraPerLevel, maxGems, pullSpeed, collectDistance, maxCoins, coinDropOffset);
         }
     }
 }

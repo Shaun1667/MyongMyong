@@ -67,3 +67,27 @@ reward.heal.desc,체력 {0} 회복,Restore {0} health
 ui.hud.goal_reached,생존 성공!,You survived!
 ui.hud.finale_warning,{0} 등장!,{0} is coming!
 enemy.clockkeeper.name,시계지기,The Clockkeeper
+# 코인 · 영구 강화 (1-12)
+ui.gameover.coins,이번 판 코인 {0} · 지갑 {1},Coins this run {0} · Wallet {1}
+ui.gameover.coins_debug,디버그 판: 코인 {0} 안 넣음 · 지갑 {1},Debug run: {0} coins not banked · Wallet {1}
+ui.gameover.shop,강화,Power Up
+ui.shop.title,영구 강화,Power Ups
+ui.shop.wallet,코인 {0},Coins {0}
+ui.shop.stage,{0} / {1},{0} / {1}
+ui.shop.price,{0} 코인,{0} coins
+ui.shop.maxed,최대,Max
+ui.shop.buy,사기,Buy
+ui.shop.refund,모두 되돌리기,Refund All
+ui.shop.close,닫기,Close
+meta.max_health.name,튼튼한 몸,Sturdy Body
+meta.max_health.desc,단계마다 최대 체력 {0},Max health {0} per stage
+meta.damage.name,힘,Might
+meta.damage.desc,단계마다 피해 {0},Damage {0} per stage
+meta.move_speed.name,날쌘 걸음,Swift Step
+meta.move_speed.desc,단계마다 이동 속도 {0},Move speed {0} per stage
+meta.pickup_radius.name,끌어당김,Attract
+meta.pickup_radius.desc,단계마다 줍는 범위 {0},Pickup range {0} per stage
+meta.growth.name,배움,Growth
+meta.growth.desc,단계마다 경험치 {0},Experience {0} per stage
+meta.regen.name,회복력,Recovery
+meta.regen.desc,단계마다 초당 체력 재생 {0},Health regen {0}/s per stage

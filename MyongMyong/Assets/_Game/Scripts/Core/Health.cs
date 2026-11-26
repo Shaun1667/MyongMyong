@@ -18,6 +18,10 @@ namespace Myong.Core
         public long EnemiesKilled;
         /// <summary>플레이어가 죽어서(체력 0) 끝났는지. 생존 목표 뒤 잡혀 끝난 승리도 true(표시 쪽이 사망 연출 뒤 창을 띄운다).</summary>
         public bool PlayerDied;
+        /// <summary>이 판에서 주운 코인 합(1-12). 판이 끝나면 지갑에 더해진다(MetaRules.CreditRun).</summary>
+        public long Coins;
+        /// <summary>상태를 바꾸는 디버그를 쓴 판인지. 그런 판의 코인은 지갑에 더하지 않는다(기록에서 빠짐).</summary>
+        public bool DebugUsed;
     }
 
     /// <summary>
@@ -134,6 +138,8 @@ namespace Myong.Core
                 Level = world.Level,
                 EnemiesKilled = world.EnemiesKilledTotal,
                 PlayerDied = world.Player.Health <= 0f,
+                Coins = world.CoinsCollected,
+                DebugUsed = world.DebugUsed,
             };
         }
     }

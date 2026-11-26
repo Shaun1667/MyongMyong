@@ -9,6 +9,8 @@ namespace Myong.Core
         Spawn = 1,
         /// <summary>레벨업 선택지 뽑기.</summary>
         LevelUp = 2,
+        /// <summary>적 처치 드롭(코인, 1-12).</summary>
+        Drop = 3,
     }
 
     /// <summary>

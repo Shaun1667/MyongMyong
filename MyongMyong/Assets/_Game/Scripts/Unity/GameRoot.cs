@@ -23,6 +23,7 @@ namespace Myong.Unity
         [SerializeField] PassiveTable passiveTable;
         [SerializeField] RunTuning runTuning;
         [SerializeField] FeedbackTuning feedbackTuning;
+        [SerializeField] PermanentUpgradeTable permanentTable;
 
         [Header("Scene")]
         [SerializeField] PlayerInputReader input;
@@ -37,6 +38,8 @@ namespace Myong.Unity
         [SerializeField] GameOverView gameOverView;
         [SerializeField] RunTimerHud timerHud;
         [SerializeField] PassiveHud passiveHud;
+        [SerializeField] GemRenderPool coinView;
+        [SerializeField] ShopView shopView;
 
         [Header("Seed")]
         [Tooltip("Off: a new seed every run. On: always Fixed Seed.")]
@@ -54,13 +57,72 @@ namespace Myong.Unity
         // 마무리(1-11): 목표 글을 보일 틱 수 · 마무리 웨이브 적의 이름 글 키(없으면 null).
         int goalBannerTicks;
         string finaleNameKey;
+        // 판 밖 진행(1-12): 영구 강화 규칙 · 줄 id · 지갑과 단계 · 저장 파일. 이 판의 코인을 지갑에 더했는지 · 더한 양.
+        PermanentRulesData permanentRules = PermanentRulesData.None;
+        string[] permanentIds = new string[0];
+        MetaProgress meta = new MetaProgress(0);
+        MetaStore metaStore;
+        MetaLoadStatus metaLoadStatus = MetaLoadStatus.Missing;
+        bool runCredited;
+        long lastCredited;
 
         void Awake()
         {
             if (stringsCsv != null) Text.Load(TextTable.ParseCsv(stringsCsv.text));
             if (levelUpView != null) levelUpView.Chosen += OnCardChosen;
-            if (gameOverView != null) gameOverView.RestartPressed += OnRestartPressed;
+            if (gameOverView != null)
+            {
+                gameOverView.RestartPressed += OnRestartPressed;
+                gameOverView.ShopPressed += OnShopPressed;
+            }
+            if (shopView != null)
+            {
+                shopView.BuyPressed += OnBuyPressed;
+                shopView.RefundPressed += OnRefundPressed;
+                shopView.ClosePressed += OnShopClosed;
+            }
+            LoadMeta();
             StartRun(NextSeed());
+        }
+
+        // 저장 파일을 읽는다(없거나 깨졌으면 0에서, 깨진 원본은 백업). 규칙은 Core MetaSave, 파일은 MetaStore.
+        void LoadMeta()
+        {
+            permanentRules = permanentTable != null ? permanentTable.ToRules() : PermanentRulesData.None;
+            permanentIds = permanentTable != null ? permanentTable.Ids() : new string[0];
+            metaStore = new MetaStore(MetaStore.DefaultPath);
+            metaLoadStatus = metaStore.Load(permanentIds, permanentRules, out meta);
+        }
+
+        void SaveMeta()
+        {
+            if (metaStore != null) metaStore.Save(meta, permanentIds);
+        }
+
+        // 결과 창의 [강화] → 강화 화면.
+        void OnShopPressed()
+        {
+            if (shopView != null && world != null && world.IsOver) shopView.Open();
+        }
+
+        // [사기]: Core가 지갑에서 빼고 단계를 올린 뒤 바로 저장. 효과는 다음 판부터.
+        void OnBuyPressed(int row)
+        {
+            if (MetaRules.Buy(permanentRules, meta, row)) SaveMeta();
+            if (shopView != null) shopView.MarkDirty();
+        }
+
+        // [모두 되돌리기]: 모든 단계를 0으로, 쓴 코인을 모두 돌려줌.
+        void OnRefundPressed()
+        {
+            if (MetaRules.RefundAll(permanentRules, meta) > 0) SaveMeta();
+            if (shopView != null) shopView.MarkDirty();
+        }
+
+        void OnShopClosed()
+        {
+            if (shopView != null) shopView.Close();
+            if (gameOverView != null) gameOverView.SelectRestart();
         }
 
         // 고정 시드가 켜져 있으면 그 시드, 아니면 매번 새 시드.
@@ -76,7 +138,11 @@ namespace Myong.Unity
             PassiveRulesData passiveRules = passiveTable != null ? passiveTable.ToRules() : PassiveRulesData.None;
             simulation = new Simulation(simulationTuning.TicksPerSecond, playerTuning.ToData(), enemyRules, weaponRules, experienceRules, upgradeRules, runRules, passiveRules);
             describeChoice = simulation.DescribeChoice;
-            world = simulation.CreateWorld(seed);
+            world = simulation.CreateWorld(seed, permanentRules, meta);
+            runCredited = false;
+            lastCredited = 0;
+            if (shopView != null) shopView.Close();
+            if (coinView != null) coinView.Prepare(experienceRules.MaxCoins, experienceTable != null ? experienceTable.CoinVisualId : string.Empty);
             goalBannerTicks = feedbackTuning != null ? FeedbackRules.TicksOf(feedbackTuning.GoalBannerSeconds, simulation.TicksPerSecond) : 0;
             finaleNameKey = FindFinaleNameKey(enemyRules);
             accumulator = 0f;
@@ -108,7 +174,17 @@ namespace Myong.Unity
         void OnDestroy()
         {
             if (levelUpView != null) levelUpView.Chosen -= OnCardChosen;
-            if (gameOverView != null) gameOverView.RestartPressed -= OnRestartPressed;
+            if (gameOverView != null)
+            {
+                gameOverView.RestartPressed -= OnRestartPressed;
+                gameOverView.ShopPressed -= OnShopPressed;
+            }
+            if (shopView != null)
+            {
+                shopView.BuyPressed -= OnBuyPressed;
+                shopView.RefundPressed -= OnRefundPressed;
+                shopView.ClosePressed -= OnShopClosed;
+            }
         }
 
         // 판 끝 창의 [다시 시작](클릭 · 패드 · Enter). 디버그 재시작과 같은 길(StartRun), 새 시드.
@@ -166,6 +242,7 @@ namespace Myong.Unity
             if (enemyView != null) enemyView.Render(world.Enemies, world.EnemyCount, alpha, world.Tick, world.EnemiesKilledTotal);
             if (bulletView != null) bulletView.Render(world.Bullets, world.BulletCount, alpha);
             if (gemView != null) gemView.Render(world.Gems, world.GemCount, alpha);
+            if (coinView != null) coinView.Render(world.Coins, world.CoinCount, alpha);
             if (experienceHud != null) experienceHud.Render(world.Level, world.Experience, simulation.ExperienceToNext(world.Level));
             if (levelUpView != null) levelUpView.Render(world.PendingLevelUps, world.LevelUpChoices, world.LevelUpChoiceCount, describeChoice, world.UpgradeStages, upgradeTable, world.PassiveStages, passiveTable);
             if (passiveHud != null) passiveHud.Render(world.PassiveSlots, world.PassiveSlotCount, world.PassiveStages, passiveTable);
@@ -176,7 +253,15 @@ namespace Myong.Unity
             }
             bool showResult = world.IsOver && (!dead || playerView == null || playerView.DeathPresentationDone);
             RunResult shownResult = showResult ? world.Result : default;
-            if (gameOverView != null) gameOverView.Render(shownResult, simulation.SurvivedSeconds(world));
+            // 판이 끝나면(승리 · 패배) 이 판의 코인을 지갑에 한 번 더하고 저장(디버그를 쓴 판은 더하지 않음).
+            if (world.IsOver && !runCredited)
+            {
+                runCredited = true;
+                lastCredited = MetaRules.CreditRun(meta, world.Result);
+                if (lastCredited > 0) SaveMeta();
+            }
+            if (gameOverView != null) gameOverView.Render(shownResult, simulation.SurvivedSeconds(world), showResult ? meta.Coins : -1);
+            if (shopView != null) shopView.Render(meta, permanentRules, permanentTable);
         }
 
         // ---- 디버그 진입점 (에디터 디버그 창 Myong/Debug/Debug Window 가 부른다) ----
@@ -212,6 +297,7 @@ namespace Myong.Unity
         /// <summary>[상태 변경] 지금 적 count마리를 바로 스폰(최대 수까지). 스폰한 수를 돌려준다.</summary>
         public int DebugSpawnEnemies(int count)
         {
+            MarkDebug();
             return simulation.SpawnEnemies(world, count);
         }
 
@@ -271,24 +357,28 @@ namespace Myong.Unity
         /// <summary>[상태 변경] 종류를 골라 count마리를 바로 소환(스폰 원 위, 쫓아옴). 스폰한 수를 돌려준다.</summary>
         public int DebugSpawnEnemiesOfKind(int kind, int count)
         {
+            MarkDebug();
             return simulation.SpawnEnemies(world, count, kind);
         }
 
         /// <summary>[상태 변경] 웨이브 w를 지금 바로(떼 돌진 · 정예 확인용).</summary>
         public bool DebugSpawnWaveNow(int wave)
         {
+            MarkDebug();
             return simulation.SpawnWaveNow(world, wave);
         }
 
         /// <summary>[상태 변경] 적 모두 제거.</summary>
         public void DebugClearEnemies()
         {
+            MarkDebug();
             simulation.ClearEnemies(world);
         }
 
         /// <summary>[상태 변경] 시간대 스폰 멈춤 / 재개.</summary>
         public void DebugSetSpawningPaused(bool paused)
         {
+            MarkDebug();
             world.SpawningPaused = paused;
         }
 
@@ -327,18 +417,21 @@ namespace Myong.Unity
         /// <summary>[상태 변경] 자동 사격 멈춤 / 재개.</summary>
         public void DebugSetFiringPaused(bool paused)
         {
+            MarkDebug();
             world.FiringPaused = paused;
         }
 
         /// <summary>[상태 변경] 적 무적 켜기 / 끄기(탄은 맞고 사라지지만 체력이 줄지 않는다).</summary>
         public void DebugSetEnemiesInvincible(bool invincible)
         {
+            MarkDebug();
             world.EnemiesInvincible = invincible;
         }
 
         /// <summary>[상태 변경] 날아가는 탄 모두 제거.</summary>
         public void DebugClearBullets()
         {
+            MarkDebug();
             simulation.ClearBullets(world);
         }
 
@@ -399,12 +492,14 @@ namespace Myong.Unity
         /// <summary>[상태 변경] 경험치 +amount(레벨이 오르면 레벨업 창이 뜬다).</summary>
         public void DebugAddExperience(int amount)
         {
+            MarkDebug();
             simulation.AddExperience(world, amount);
         }
 
         /// <summary>[상태 변경] 다음 레벨까지 남은 경험치를 바로 넣어 레벨업.</summary>
         public void DebugLevelUpNow()
         {
+            MarkDebug();
             int need = simulation.ExperienceToNext(world.Level);
             if (need == int.MaxValue) return;
             simulation.AddExperience(world, need - world.Experience);
@@ -419,12 +514,14 @@ namespace Myong.Unity
         /// <summary>[상태 변경] 강화 표의 row번째 줄을 한 단계 건다. 최대 단계면 false.</summary>
         public bool DebugApplyUpgrade(int row)
         {
+            MarkDebug();
             return simulation.ApplyUpgrade(world, row);
         }
 
         /// <summary>[상태 변경] 걸린 강화를 모두 푼다(레벨 · 경험치는 그대로).</summary>
         public void DebugResetUpgrades()
         {
+            MarkDebug();
             simulation.ResetUpgrades(world);
         }
 
@@ -470,6 +567,7 @@ namespace Myong.Unity
         /// <summary>[상태 변경] 패시브 표의 row번째 줄을 주거나(없으면) 한 단계 올린다. 최대 단계 · 칸이 다 찼으면 false.</summary>
         public bool DebugApplyPassive(int row)
         {
+            MarkDebug();
             return simulation.ApplyPassive(world, row);
         }
 
@@ -510,18 +608,21 @@ namespace Myong.Unity
         /// <summary>[상태 변경] 플레이어 무적 켜기 / 끄기.</summary>
         public void DebugSetPlayerInvincible(bool invincible)
         {
+            MarkDebug();
             world.PlayerInvincible = invincible;
         }
 
         /// <summary>[상태 변경] 체력 채우기.</summary>
         public void DebugFillHealth()
         {
+            MarkDebug();
             simulation.FillHealth(world);
         }
 
         /// <summary>[상태 변경] 피해 amount(0이 되면 판 끝).</summary>
         public void DebugDamagePlayer(float amount)
         {
+            MarkDebug();
             simulation.DamagePlayer(world, amount);
         }
 
@@ -543,6 +644,7 @@ namespace Myong.Unity
         /// <summary>[상태 변경] 판 시간을 seconds로 건너뛴다(앞으로만, 틱 수만 바뀜). 건너뛰었으면 true.</summary>
         public bool DebugSkipToSeconds(float seconds)
         {
+            MarkDebug();
             accumulator = 0f;
             return simulation.SkipTo(world, seconds);
         }
@@ -587,12 +689,14 @@ namespace Myong.Unity
         /// <summary>[상태 변경] 바로 승리(시간을 건너뛰지 않고 지금 틱으로 판 끝 — 창 모양 확인용).</summary>
         public void DebugVictoryNow()
         {
+            MarkDebug();
             simulation.EndRun(world, RunOutcome.Victory);
         }
 
         /// <summary>[상태 변경] 바로 게임 오버(패배로 판 끝).</summary>
         public void DebugGameOverNow()
         {
+            MarkDebug();
             simulation.EndRun(world, RunOutcome.Defeat);
         }
 
@@ -624,6 +728,7 @@ namespace Myong.Unity
         /// <summary>[상태 변경] 플레이어를 그 자리로.</summary>
         public void DebugTeleportPlayer(float x, float y)
         {
+            MarkDebug();
             simulation.TeleportPlayer(world, new Vec2(x, y));
         }
 
@@ -693,6 +798,7 @@ namespace Myong.Unity
         /// <summary>[상태 변경] 피격 흉내: 적에게 닿은 것처럼 피해 amount + 맞은 뒤 무적 시간(번쩍임 · 깜빡임 · 피격 애니메이션이 실제 피격과 같은 길로 나온다). 0이 되면 사망.</summary>
         public void DebugSimulateHit(float amount)
         {
+            MarkDebug();
             if (world.IsOver || amount <= 0f) return;
             simulation.DamagePlayer(world, amount);
             if (!world.IsOver) world.Player.InvulnerableUntilTick = world.Tick + simulation.HurtInvulnerableTicks;
@@ -701,6 +807,7 @@ namespace Myong.Unity
         /// <summary>[상태 변경] 사망 흉내: 남은 체력만큼 피해를 줘 체력 0으로 판을 끝낸다(사망 애니메이션 → 판 끝 창).</summary>
         public void DebugKillPlayer()
         {
+            MarkDebug();
             if (world.IsOver) return;
             simulation.DamagePlayer(world, Math.Max(1f, world.Player.Health));
         }
@@ -721,6 +828,115 @@ namespace Myong.Unity
         public void DebugPlayHit()
         {
             if (playerView != null) playerView.PlayHit();
+        }
+
+        // ---- 코인 · 영구 강화 (1-12) ----
+
+        // 상태를 바꾸는 디버그를 쓴 판이라고 표시(그 판의 코인은 지갑에 더하지 않음). 입력 대신 넣기 · 카드 누르기 · 보기만 · 재시작은 표시하지 않는다.
+        void MarkDebug()
+        {
+            if (world != null) Simulation.MarkDebugUsed(world);
+        }
+
+        /// <summary>이 판에 상태를 바꾸는 디버그를 썼는지(썼으면 코인을 지갑에 더하지 않음).</summary>
+        public bool DebugRunMarked => world.DebugUsed;
+
+        /// <summary>이 판에서 주운 코인 · 떨어진 코인 수 · 땅에 있는 코인 수 / 최대.</summary>
+        public long DebugRunCoins => world.CoinsCollected;
+
+        public long DebugCoinsDroppedTotal => world.CoinsDroppedTotal;
+
+        public int DebugCoinCount => world.CoinCount;
+
+        public int DebugCoinCapacity => world.Coins.Length;
+
+        /// <summary>땅에 있는 코인 하나(확인용, 복사본).</summary>
+        public GemState DebugCoin(int index) => world.Coins[index];
+
+        /// <summary>지갑 · 이 판을 지갑에 더했는지 · 더한 양.</summary>
+        public long DebugWallet => meta.Coins;
+
+        public bool DebugRunCredited => runCredited;
+
+        public long DebugLastCredited => lastCredited;
+
+        /// <summary>저장 파일 자리 · 불러온 결과 · 백업 자리(없으면 빈 문자열).</summary>
+        public string DebugSavePath => metaStore != null ? metaStore.Path : string.Empty;
+
+        public MetaLoadStatus DebugMetaLoadStatus => metaLoadStatus;
+
+        public string DebugSaveBackupPath => metaStore != null && metaStore.LastBackupPath != null ? metaStore.LastBackupPath : string.Empty;
+
+        public int DebugPermanentRowCount => permanentRules.Rows.Length;
+
+        public string DebugPermanentId(int row) => row >= 0 && row < permanentIds.Length ? permanentIds[row] : string.Empty;
+
+        public int DebugPermanentStage(int row) => row >= 0 && row < meta.Stages.Length ? meta.Stages[row] : 0;
+
+        public int DebugPermanentMaxStage(int row) => row >= 0 && row < permanentRules.Rows.Length ? permanentRules.Rows[row].MaxStage : 0;
+
+        /// <summary>다음 단계 가격(최대면 -1).</summary>
+        public long DebugPermanentPrice(int row) => MetaRules.PriceOfNext(permanentRules, meta, row);
+
+        /// <summary>이 판에 걸린 영구 강화 기본 값 칸(더하기 · 곱하기).</summary>
+        public float DebugBaseAdd(StatTarget target) => world.BaseAdd[(int)target];
+
+        public float DebugBaseMul(StatTarget target) => world.BaseMul[(int)target];
+
+        /// <summary>강화 화면이 열려 있는지 · 보이는 지갑 글 · 결과 창 코인 글(표시 확인용).</summary>
+        public bool DebugShopOpen => shopView != null && shopView.IsOpen;
+
+        public string DebugShopWalletText => shopView != null ? shopView.ShownWallet : string.Empty;
+
+        public string DebugGameOverCoins => gameOverView != null ? gameOverView.ShownCoins : string.Empty;
+
+        /// <summary>[상태 변경] 지갑에 코인 +amount(바로 저장). 판 기록은 그대로.</summary>
+        public void DebugAddCoins(long amount)
+        {
+            MetaRules.AddCoins(meta, amount);
+            SaveMeta();
+            if (shopView != null) shopView.MarkDirty();
+        }
+
+        /// <summary>[상태 변경] 영구 강화 초기화: 모든 단계 0(코인은 돌려주지 않음, 지갑 그대로), 바로 저장. 효과는 다음 판부터.</summary>
+        public void DebugResetPermanent()
+        {
+            for (int i = 0; i < meta.Stages.Length; i++) meta.Stages[i] = 0;
+            SaveMeta();
+            if (shopView != null) shopView.MarkDirty();
+        }
+
+        /// <summary>[상태 변경] 강화 화면의 [사기] · [모두 되돌리기] · [닫기]를 누른 것과 같은 길(버튼 onClick). 창이 없으면 바로.</summary>
+        public void DebugPressBuy(int row)
+        {
+            var button = shopView != null ? shopView.BuyButton(row) : null;
+            if (button != null) { if (button.interactable) button.onClick.Invoke(); }
+            else OnBuyPressed(row);
+        }
+
+        public void DebugPressRefund()
+        {
+            if (shopView != null && shopView.RefundButton != null) shopView.RefundButton.onClick.Invoke();
+            else OnRefundPressed();
+        }
+
+        public void DebugPressShop()
+        {
+            if (gameOverView != null && gameOverView.ShopButton != null) gameOverView.ShopButton.onClick.Invoke();
+            else OnShopPressed();
+        }
+
+        public void DebugPressShopClose()
+        {
+            if (shopView != null && shopView.CloseButton != null) shopView.CloseButton.onClick.Invoke();
+            else OnShopClosed();
+        }
+
+        /// <summary>[상태 변경] 저장 파일을 다시 읽는다(에디터를 다시 연 것과 같은 길). 지금 판은 그대로, 다음 판부터.</summary>
+        public void DebugReloadMeta()
+        {
+            LoadMeta();
+            if (shopView != null) shopView.MarkDirty();
         }
 
         /// <summary>표시 언어 바꾸기(보기만).</summary>

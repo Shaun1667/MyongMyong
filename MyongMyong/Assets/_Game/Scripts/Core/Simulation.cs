@@ -166,6 +166,7 @@ namespace Myong.Core
                 Seed = seed,
                 SpawnRandom = Rng.ForStream(seed, RandomStream.Spawn),
                 LevelUpRandom = Rng.ForStream(seed, RandomStream.LevelUp),
+                DropRandom = Rng.ForStream(seed, RandomStream.Drop),
                 Enemies = new EnemyState[enemies.MaxAlive],
                 EnemiesSpawnedByKind = new long[enemies.Kinds.Length],
                 EnemiesKilledByKind = new long[enemies.Kinds.Length],
@@ -175,6 +176,20 @@ namespace Myong.Core
             weaponRules.InitWorld(world);
             progression.InitWorld(world, weapons.Kinds.Length);
             health.InitWorld(world);
+            return world;
+        }
+
+        /// <summary>
+        /// 영구 강화(1-12)를 건 판을 만든다: 단계마다 그 줄의 효과를 기본 값 칸(World.BaseAdd · BaseMul)에 한 번씩 건 뒤 체력을 그 최대 체력으로 채운다.
+        /// 강화가 모두 0단계(또는 rules · progress가 null)이면 CreateWorld(seed)와 같다. 같은 시드 + 같은 강화 = 같은 판.
+        /// </summary>
+        public World CreateWorld(int seed, PermanentRulesData rules, MetaProgress progress)
+        {
+            World world = CreateWorld(seed);
+            if (rules != null && progress != null && MetaRules.ApplyToWorld(rules, progress, world) > 0)
+            {
+                world.Player.Health = progression.MaxHealth(world);
+            }
             return world;
         }
 
@@ -250,7 +265,9 @@ namespace Myong.Core
             weaponRules.Fire(world);
             weaponRules.StepBullets(world);
             progression.StepGems(world);
+            progression.StepCoins(world);
             progression.DropGems(world);
+            progression.DropCoins(world);
             WeaponRules.RemoveDeadEnemies(world);
             RemoveEscapedEnemies(world);
             StepSpawning(world);
@@ -622,5 +639,13 @@ namespace Myong.Core
 
         /// <summary>체력을 채운다(최대 체력까지, 디버그 · 나중의 보상).</summary>
         public void Heal(World world, float amount) => progression.Heal(world, amount);
+
+        // ---- 코인 · 판 밖 기록 (1-12) ----
+
+        /// <summary>상태를 바꾸는 디버그를 썼다고 표시한다(그 판의 코인은 지갑에 더하지 않음). 끝난 판은 그대로.</summary>
+        public static void MarkDebugUsed(World world)
+        {
+            if (world != null && !world.IsOver) world.DebugUsed = true;
+        }
     }
 }

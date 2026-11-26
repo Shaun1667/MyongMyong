@@ -35,6 +35,12 @@ namespace Myong.Editor
         const float GemPlaceholderRadius = 0.09f; // 지름 6도트 단색 도트(표시만)
         const int BigGemValue = 10; // 이 값 이상의 젬은 큰 도트(정예의 젬, 표시만)
         const float BigGemPlaceholderRadius = 0.16f; // 지름 약 10도트
+        // 코인(1-12, 표시만): 금색 단색 도트, 젬보다 조금 크게. 이 값 이상인 코인(정예)은 크게.
+        static readonly Color CoinPlaceholderColor = new Color32(0xF2, 0xC2, 0x3A, 0xFF);
+        const float CoinPlaceholderRadius = 0.11f; // 지름 약 7도트
+        const int BigCoinValue = 5;
+        const float BigCoinPlaceholderRadius = 0.19f; // 지름 약 12도트
+        const int CoinSortingOrder = -2; // 젬과 같은 층(바닥 위, 적 뒤)
         // 그림이 없는 적 비주얼의 단색 원 색(표시만). 없는 id는 id 해시 색(enemy_basic = 분홍).
         static readonly (string visualId, Color32 color)[] EnemyPlaceholderColors =
         {
@@ -162,6 +168,19 @@ namespace Myong.Editor
             gemSo.FindProperty("bigPlaceholderRadius").floatValue = BigGemPlaceholderRadius;
             gemSo.ApplyModifiedPropertiesWithoutUndo();
 
+            // 코인 렌더러 풀(1-12, 젬과 같은 그리기 — 렌더러는 Play 때 GameRoot가 코인 최대 수만큼 미리 만든다)
+            var coinsObject = FindOrCreate(scene, "Coins");
+            var coinPool = GetOrAdd<GemRenderPool>(coinsObject);
+            SetupUtil.SetReference(coinPool, "spriteMaterial", material);
+            SetupUtil.SetInt(coinPool, "sortingOrder", CoinSortingOrder);
+            var coinSo = new SerializedObject(coinPool);
+            coinSo.FindProperty("placeholderRadius").floatValue = CoinPlaceholderRadius;
+            coinSo.FindProperty("bigGemValue").intValue = BigCoinValue;
+            coinSo.FindProperty("bigPlaceholderRadius").floatValue = BigCoinPlaceholderRadius;
+            coinSo.FindProperty("usePlaceholderColor").boolValue = true;
+            coinSo.FindProperty("placeholderColor").colorValue = CoinPlaceholderColor;
+            coinSo.ApplyModifiedPropertiesWithoutUndo();
+
             // 플레이어 체력 바 (머리 위, 리그와 따로 있는 오브젝트 — 조각은 Play 때 만든다)
             var healthBarObject = FindOrCreate(scene, "PlayerHealthBar");
             var healthBar = GetOrAdd<PlayerHealthBar>(healthBarObject);
@@ -199,6 +218,10 @@ namespace Myong.Editor
             var passiveTable = AssetDatabase.LoadAssetAtPath<PassiveTable>(DataSetup.PassiveTablePath);
             SetupUtil.SetReference(gameRoot, "passiveTable", passiveTable);
             SetupUtil.SetReference(gameRoot, "gemView", gemPool);
+            SetupUtil.SetReference(gameRoot, "coinView", coinPool);
+            // 영구 강화 표(1-12, 없으면 만든다 — 데이터 에셋은 없을 때만 만들고 값은 덮어쓰지 않는다)
+            if (AssetDatabase.LoadAssetAtPath<PermanentUpgradeTable>(DataSetup.PermanentUpgradeTablePath) == null) DataSetup.CreateDataAssets();
+            SetupUtil.SetReference(gameRoot, "permanentTable", AssetDatabase.LoadAssetAtPath<PermanentUpgradeTable>(DataSetup.PermanentUpgradeTablePath));
             SetupUtil.SetReference(gameRoot, "healthBar", healthBar);
             SetupUtil.SetReference(gameRoot, "runTuning", AssetDatabase.LoadAssetAtPath<RunTuning>(DataSetup.RunTuningPath));
             // 피격 · 사망 연출 수치(없으면 만든다 — 데이터 에셋은 없을 때만 만들고 값은 덮어쓰지 않는다)
@@ -244,6 +267,8 @@ namespace Myong.Editor
             // 가진 패시브 아이콘 줄(칸 수 = 패시브 표의 최대 개수)
             SetupUtil.SetReference(gameRoot, "passiveHud", HudBuilder.BuildPassives(hud, passiveTable != null ? passiveTable.MaxOwned : 0));
             SetupUtil.SetReference(gameRoot, "gameOverView", HudBuilder.BuildGameOver(hud));
+            // 강화 화면(1-12): 판 끝 창의 [강화]가 연다. 판 끝 창보다 위.
+            SetupUtil.SetReference(gameRoot, "shopView", HudBuilder.BuildShop(hud));
             // 화면 가상 조이스틱(터치 · 에디터에서는 마우스) — 값은 Move 액션의 패드 왼스틱 자리로 들어간다
             var joystick = HudBuilder.BuildJoystick(hud, AssetDatabase.LoadAssetAtPath<JoystickTuning>(DataSetup.JoystickTuningPath));
             SetupUtil.SetReference(gameRoot, "joystick", joystick);

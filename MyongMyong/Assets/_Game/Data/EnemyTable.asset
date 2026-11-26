@@ -23,6 +23,8 @@ MonoBehaviour:
     invulnerable: 0
     lethalContact: 0
     nameKey: 
+    coinChance: 0.05
+    coinValue: 1
   - id: runner
     moveSpeed: 3
     radius: 0.22
@@ -33,6 +35,8 @@ MonoBehaviour:
     invulnerable: 0
     lethalContact: 0
     nameKey: 
+    coinChance: 0.05
+    coinValue: 1
   - id: brute
     moveSpeed: 1.1
     radius: 0.42
@@ -43,6 +47,8 @@ MonoBehaviour:
     invulnerable: 0
     lethalContact: 0
     nameKey: 
+    coinChance: 0.15
+    coinValue: 1
   - id: elite
     moveSpeed: 1.4
     radius: 0.75
@@ -53,6 +59,8 @@ MonoBehaviour:
     invulnerable: 0
     lethalContact: 0
     nameKey: 
+    coinChance: 1
+    coinValue: 10
   - id: clockkeeper
     moveSpeed: 7.5
     radius: 1
@@ -63,4 +71,6 @@ MonoBehaviour:
     invulnerable: 1
     lethalContact: 1
     nameKey: enemy.clockkeeper.name
+    coinChance: 0
+    coinValue: 0
   separationPush: 0.5

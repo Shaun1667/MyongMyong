@@ -240,6 +240,135 @@ namespace Myong.Editor
         static readonly Color GameOverDim = new Color(0.05f, 0f, 0.02f, 0.72f);
         static readonly Color GameOverTitleColor = new Color(1f, 0.42f, 0.38f, 1f);
         static readonly Color GameOverBox = new Color(0.1f, 0.09f, 0.14f, 0.94f);
+        static readonly Color CoinColor = new Color(1f, 0.84f, 0.32f, 1f);
+        const float ResultButtonOffset = 124f;
+        const float ResultButtonY = -100f;
+
+        // 글자 버튼 하나(카드와 같은 색). 이름으로 찾아 없으면 만든다.
+        static (UnityEngine.UI.Button button, UnityEngine.UI.Text label) Button(RectTransform parent, string name, Vector2 position, Vector2 size, int fontSize)
+        {
+            var rect = Child(parent, name);
+            Place(rect, new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f), position, size);
+            var background = Image(rect.gameObject, Color.white, true);
+            var button = GetOrAdd<UnityEngine.UI.Button>(rect.gameObject);
+            button.targetGraphic = background;
+            var colors = button.colors;
+            colors.normalColor = CardNormal;
+            colors.highlightedColor = CardHighlighted;
+            colors.selectedColor = CardSelected;
+            colors.pressedColor = CardPressed;
+            colors.disabledColor = ButtonDisabled;
+            colors.colorMultiplier = 1f;
+            button.colors = colors;
+            var labelRect = Child(rect, "Label");
+            Stretch(labelRect);
+            var label = Label(labelRect.gameObject, fontSize, TextAnchor.MiddleCenter, Color.white);
+            return (button, label);
+        }
+
+        static readonly Color ButtonDisabled = new Color(0.07f, 0.07f, 0.09f, 1f);
+        static readonly Color ShopBox = new Color(0.1f, 0.09f, 0.14f, 1f); // 불투명(뒤 창 글이 비치지 않게)
+
+        // 강화 화면(1-12) 배치(HUD 단위 = 기준 해상도 도트)
+        const float ShopWidth = 720f;
+        const float ShopHeight = 500f;
+        const float ShopRowHeight = 50f;
+        const float ShopRowsTop = -104f;
+        const int ShopTitleFontSize = 30;
+        const int ShopRowTitleFontSize = 18;
+        const int ShopRowBodyFontSize = 14;
+        const float ShopBuyWidth = 96f;
+        const float ShopBuyHeight = 38f;
+        const float ShopFooterButtonWidth = 220f;
+        static readonly Color ShopRowBack = new Color(0.16f, 0.17f, 0.23f, 0.95f);
+
+        /// <summary>
+        /// 강화 화면(1-12): 어둠 바탕 · 상자 · 제목 · 지갑 · 줄 본(하나, Play 때 ShopView가 표 줄 수만큼 복제) · [모두 되돌리기] · [닫기].
+        /// 판 끝 창보다 위(맨 끝 형제). BuildGameOver 다음에 부른다.
+        /// </summary>
+        public static ShopView BuildShop(GameObject hudRoot)
+        {
+            var root = Child(hudRoot.transform, "Shop");
+            Stretch(root);
+            root.SetAsLastSibling();
+            var view = GetOrAdd<ShopView>(root.gameObject);
+            var panel = Child(root, "Panel");
+            Stretch(panel);
+            Image(panel.gameObject, Dim, true);
+
+            var box = Child(panel, "Box");
+            Place(box, new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f), Vector2.zero, new Vector2(ShopWidth, ShopHeight));
+            Image(box.gameObject, ShopBox, false);
+            box.SetAsFirstSibling();
+
+            var title = Child(panel, "Title");
+            Place(title, new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f), new Vector2(0.5f, 1f), new Vector2(0f, ShopHeight * 0.5f - 12f), new Vector2(ShopWidth - 40f, 44f));
+            var titleText = Label(title.gameObject, ShopTitleFontSize, TextAnchor.MiddleCenter, TitleColor);
+
+            var wallet = Child(panel, "Wallet");
+            Place(wallet, new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f), new Vector2(0.5f, 1f), new Vector2(0f, ShopHeight * 0.5f - 58f), new Vector2(ShopWidth - 40f, 28f));
+            var walletText = Label(wallet.gameObject, ResultFontSize, TextAnchor.MiddleCenter, CoinColor);
+
+            // 줄이 놓일 자리(위에서 아래로) + 줄 본 하나(꺼 둔다).
+            var rows = Child(panel, "Rows");
+            Place(rows, new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f), new Vector2(0.5f, 1f), new Vector2(0f, ShopHeight * 0.5f + ShopRowsTop + 8f), new Vector2(ShopWidth - 40f, 6f * ShopRowHeight));
+            var template = Child(rows, "RowTemplate");
+            Place(template, new Vector2(0f, 1f), new Vector2(1f, 1f), new Vector2(0.5f, 1f), Vector2.zero, new Vector2(0f, ShopRowHeight - 4f));
+            Image(template.gameObject, ShopRowBack, false);
+            var rowView = GetOrAdd<ShopRowView>(template.gameObject);
+
+            var rowTitle = Child(template, "Name");
+            Place(rowTitle, new Vector2(0f, 1f), new Vector2(0f, 1f), new Vector2(0f, 1f), new Vector2(12f, -3f), new Vector2(190f, 24f));
+            rowView.title = Label(rowTitle.gameObject, ShopRowTitleFontSize, TextAnchor.MiddleLeft, Color.white);
+            var rowDescription = Child(template, "Description");
+            Place(rowDescription, new Vector2(0f, 0f), new Vector2(0f, 0f), new Vector2(0f, 0f), new Vector2(12f, 2f), new Vector2(330f, 20f));
+            rowView.description = Label(rowDescription.gameObject, ShopRowBodyFontSize, TextAnchor.MiddleLeft, BodyColor);
+            var rowStage = Child(template, "Stage");
+            Place(rowStage, new Vector2(1f, 0.5f), new Vector2(1f, 0.5f), new Vector2(1f, 0.5f), new Vector2(-(ShopBuyWidth + 150f), 0f), new Vector2(90f, 24f));
+            rowView.stage = Label(rowStage.gameObject, ShopRowBodyFontSize, TextAnchor.MiddleCenter, StageColor);
+            var rowPrice = Child(template, "Price");
+            Place(rowPrice, new Vector2(1f, 0.5f), new Vector2(1f, 0.5f), new Vector2(1f, 0.5f), new Vector2(-(ShopBuyWidth + 16f), 0f), new Vector2(130f, 24f));
+            rowView.price = Label(rowPrice.gameObject, ShopRowBodyFontSize, TextAnchor.MiddleRight, CoinColor);
+            var buy = Child(template, "Buy");
+            Place(buy, new Vector2(1f, 0.5f), new Vector2(1f, 0.5f), new Vector2(1f, 0.5f), new Vector2(-8f, 0f), new Vector2(ShopBuyWidth, ShopBuyHeight));
+            var buyBackground = Image(buy.gameObject, Color.white, true);
+            var buyButton = GetOrAdd<UnityEngine.UI.Button>(buy.gameObject);
+            buyButton.targetGraphic = buyBackground;
+            var buyColors = buyButton.colors;
+            buyColors.normalColor = CardNormal;
+            buyColors.highlightedColor = CardHighlighted;
+            buyColors.selectedColor = CardSelected;
+            buyColors.pressedColor = CardPressed;
+            buyColors.disabledColor = ButtonDisabled;
+            buyColors.colorMultiplier = 1f;
+            buyButton.colors = buyColors;
+            var buyLabel = Child(buy, "Label");
+            Stretch(buyLabel);
+            rowView.buyButton = buyButton;
+            rowView.buyLabel = Label(buyLabel.gameObject, ShopRowTitleFontSize, TextAnchor.MiddleCenter, Color.white);
+            EditorUtility.SetDirty(rowView);
+            template.gameObject.SetActive(false);
+
+            float footerY = -ShopHeight * 0.5f + 36f;
+            var (refundButton, refundText) = Button(panel, "Refund", new Vector2(-ResultButtonOffset, footerY), new Vector2(ShopFooterButtonWidth, RestartHeight - 8f), RestartFontSize - 2);
+            var (closeButton, closeText) = Button(panel, "Close", new Vector2(ResultButtonOffset, footerY), new Vector2(ShopFooterButtonWidth, RestartHeight - 8f), RestartFontSize - 2);
+
+            var so = new SerializedObject(view);
+            so.FindProperty("panel").objectReferenceValue = panel.gameObject;
+            so.FindProperty("title").objectReferenceValue = titleText;
+            so.FindProperty("wallet").objectReferenceValue = walletText;
+            so.FindProperty("rowsRoot").objectReferenceValue = rows;
+            so.FindProperty("rowTemplate").objectReferenceValue = rowView;
+            so.FindProperty("rowHeight").floatValue = ShopRowHeight;
+            so.FindProperty("refundButton").objectReferenceValue = refundButton;
+            so.FindProperty("refundLabel").objectReferenceValue = refundText;
+            so.FindProperty("closeButton").objectReferenceValue = closeButton;
+            so.FindProperty("closeLabel").objectReferenceValue = closeText;
+            so.ApplyModifiedPropertiesWithoutUndo();
+            // 화면은 Play 중 [강화]를 눌렀을 때만 보인다(ShopView가 켬다).
+            panel.gameObject.SetActive(false);
+            return view;
+        }
 
         /// <summary>
         /// 판 끝 창(제목 · 생존 시간 · 레벨 · 처치 수 · [다시 시작]). 레벨업 창보다 위(맨 끝 형제). Build 다음에 부른다.
@@ -256,7 +385,7 @@ namespace Myong.Editor
 
             // 글 뒤 상자(가운데 있는 플레이어 위에서도 읽히게). 맨 앞 형제 = 가장 뒤.
             var box = Child(panel, "Box");
-            Place(box, new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f), new Vector2(0f, 12f), new Vector2(500f, 330f));
+            Place(box, new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f), new Vector2(0f, 0f), new Vector2(540f, 380f));
             Image(box.gameObject, GameOverBox, false);
             box.SetAsFirstSibling();
 
@@ -276,24 +405,17 @@ namespace Myong.Editor
             Place(kills, new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f), new Vector2(0f, 60f - 2f * ResultLineHeight), new Vector2(ResultWidth, ResultLineHeight));
             var killsText = Label(kills.gameObject, ResultFontSize, TextAnchor.MiddleCenter, Color.white);
 
-            var restart = Child(panel, "Restart");
-            Place(restart, new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f), new Vector2(0f, -70f), new Vector2(RestartWidth, RestartHeight));
-            var background = Image(restart.gameObject, Color.white, true);
-            var button = GetOrAdd<UnityEngine.UI.Button>(restart.gameObject);
-            button.targetGraphic = background;
-            var colors = button.colors;
-            colors.normalColor = CardNormal;
-            colors.highlightedColor = CardHighlighted;
-            colors.selectedColor = CardSelected;
-            colors.pressedColor = CardPressed;
-            colors.colorMultiplier = 1f;
-            button.colors = colors;
-            var restartLabel = Child(restart, "Label");
-            Stretch(restartLabel);
-            var restartText = Label(restartLabel.gameObject, RestartFontSize, TextAnchor.MiddleCenter, Color.white);
+            // 이번 판 코인 · 지갑(1-12): 처치 수 아래 줄.
+            var coins = Child(panel, "Coins");
+            Place(coins, new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f), new Vector2(0f, 60f - 3f * ResultLineHeight), new Vector2(ResultWidth + 100f, ResultLineHeight));
+            var coinsText = Label(coins.gameObject, ResultFontSize, TextAnchor.MiddleCenter, CoinColor);
+
+            // [다시 시작] · [강화](1-12)를 나란히.
+            var (button, restartText) = Button(panel, "Restart", new Vector2(-ResultButtonOffset, ResultButtonY), new Vector2(RestartWidth, RestartHeight), RestartFontSize);
+            var (shopButton, shopText) = Button(panel, "Shop", new Vector2(ResultButtonOffset, ResultButtonY), new Vector2(RestartWidth, RestartHeight), RestartFontSize);
 
             var hint = Child(panel, "Hint");
-            Place(hint, new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f), new Vector2(0f, -122f), new Vector2(800f, 24f));
+            Place(hint, new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f), new Vector2(0f, ResultButtonY - 56f), new Vector2(800f, 24f));
             var hintText = Label(hint.gameObject, BodyFontSize, TextAnchor.MiddleCenter, BodyColor);
 
             var so = new SerializedObject(view);
@@ -305,6 +427,9 @@ namespace Myong.Editor
             so.FindProperty("hint").objectReferenceValue = hintText;
             so.FindProperty("restartButton").objectReferenceValue = button;
             so.FindProperty("restartLabel").objectReferenceValue = restartText;
+            so.FindProperty("coins").objectReferenceValue = coinsText;
+            so.FindProperty("shopButton").objectReferenceValue = shopButton;
+            so.FindProperty("shopLabel").objectReferenceValue = shopText;
             so.ApplyModifiedPropertiesWithoutUndo();
             // 창은 Play 중 판이 끝났을 때만 보인다(GameOverView가 켠다).
             panel.gameObject.SetActive(false);

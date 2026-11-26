@@ -23,8 +23,15 @@ namespace Myong.Core
         /// <summary>닿으면 즉사: 맞은 뒤 무적 시간 · 받는 피해 배율과 상관없이 체력이 0이 된다(디버그 플레이어 무적만 막음). 30분 마무리 적(1-11).</summary>
         public readonly bool LethalContact;
 
-        public EnemyKindData(float moveSpeed, float radius, float maxHealth = 1f, int experienceValue = 0, float contactDamage = 0f, bool invulnerable = false, bool lethalContact = false)
+        /// <summary>죽을 때 코인을 떨어뜨릴 확률(0 ~ 1, 1-12). 1 이상이면 확정(난수를 뽑지 않음), 0이면 없음(난수를 뽑지 않음).</summary>
+        public readonly float CoinChance;
+        /// <summary>떨어뜨리는 코인 하나의 값(코인 수, 0 = 코인 없음). 정예는 큰 값 하나.</summary>
+        public readonly int CoinValue;
+
+        public EnemyKindData(float moveSpeed, float radius, float maxHealth = 1f, int experienceValue = 0, float contactDamage = 0f, bool invulnerable = false, bool lethalContact = false, float coinChance = 0f, int coinValue = 0)
         {
+            CoinChance = coinChance < 0f ? 0f : coinChance;
+            CoinValue = coinValue < 0 ? 0 : coinValue;
             Invulnerable = invulnerable;
             LethalContact = lethalContact;
             ContactDamage = contactDamage;

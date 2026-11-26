@@ -1,0 +1,57 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: e03bc82c0d463bb4fbe4773003a36fb9, type: 3}
+  m_Name: PermanentUpgradeTable
+  m_EditorClassIdentifier: Myong.Unity::Myong.Unity.PermanentUpgradeTable
+  rows:
+  - id: max_health
+    nameKey: meta.max_health.name
+    descriptionKey: meta.max_health.desc
+    target: 8
+    op: 0
+    value: 10
+    prices: 1400000028000000460000006e000000a0000000
+  - id: damage
+    nameKey: meta.damage.name
+    descriptionKey: meta.damage.desc
+    target: 3
+    op: 1
+    value: 1.05
+    prices: 1e0000003c0000006400000096000000d2000000
+  - id: move_speed
+    nameKey: meta.move_speed.name
+    descriptionKey: meta.move_speed.desc
+    target: 0
+    op: 1
+    value: 1.03
+    prices: 19000000370000005f000000
+  - id: pickup_radius
+    nameKey: meta.pickup_radius.name
+    descriptionKey: meta.pickup_radius.desc
+    target: 1
+    op: 1
+    value: 1.1
+    prices: 0f000000230000003c000000
+  - id: growth
+    nameKey: meta.growth.name
+    descriptionKey: meta.growth.desc
+    target: 11
+    op: 1
+    value: 1.03
+    prices: 19000000320000005500000082000000b9000000
+  - id: regen
+    nameKey: meta.regen.name
+    descriptionKey: meta.regen.desc
+    target: 9
+    op: 0
+    value: 0.1
+    prices: 1e0000003c0000006400000096000000d2000000

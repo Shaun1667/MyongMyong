@@ -338,7 +338,13 @@ namespace Myong.Unity
             return SolidDot(visualId, radiusUnits, GemHueStart, GemHueSpan, GemSaturation, "PlaceholderGem_");
         }
 
-        static Sprite SolidDot(string visualId, float radiusUnits, float hueStart, float hueSpan, float saturation, string namePrefix)
+        /// <summary>반지름(유닛)만 한 단색 도트, 색을 정해서(코인 · 1-12).</summary>
+        public static Sprite ColorDot(string visualId, float radiusUnits, Color32 fill)
+        {
+            return SolidDot(visualId, radiusUnits, 0f, 0f, 0f, "PlaceholderColorDot_", fill);
+        }
+
+        static Sprite SolidDot(string visualId, float radiusUnits, float hueStart, float hueSpan, float saturation, string namePrefix, Color32? color = null)
         {
             int diameter = Mathf.Max(MinDotDiameter, Mathf.RoundToInt(radiusUnits * 2f * PixelArt.PixelsPerUnit));
             // 짝수 크기로 만들어 가운데 피벗이 도트 경계에 오게 한다(격자 맞춤 때 번지지 않게).
@@ -346,7 +352,7 @@ namespace Myong.Unity
             int size = diameter;
             float center = size / 2f;
             float radius = size / 2f;
-            Color32 fill = Color.HSVToRGB(Hue(visualId, hueStart, hueSpan), saturation, DotValue);
+            Color32 fill = color ?? (Color32)Color.HSVToRGB(Hue(visualId, hueStart, hueSpan), saturation, DotValue);
 
             var pixels = new Color32[size * size];
             for (int y = 0; y < size; y++)

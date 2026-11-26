@@ -35,6 +35,7 @@ namespace Myong.Editor
         float skipBeforeGoalSeconds = 10f;
         int skipMinutes = 29;
         int skipSeconds = 50;
+        int coinAmount = 100;
 
         [MenuItem("Myong/Debug/Debug Window")]
         public static void Open()
@@ -54,6 +55,7 @@ namespace Myong.Editor
                 new Section { Title = "무기", Draw = DrawWeapons },
                 new Section { Title = "경험치 / 레벨", Draw = DrawExperience },
                 new Section { Title = "패시브", Draw = DrawPassives },
+                new Section { Title = "코인 · 영구 강화", Draw = DrawMeta },
                 new Section { Title = "텍스트", Draw = DrawText },
             };
         }
@@ -410,6 +412,56 @@ namespace Myong.Editor
                 }
             }
             EditorGUILayout.LabelField("(강화 · 패시브 모두 풀기 = 경험치 / 레벨 섹션의 [강화 모두 초기화])");
+        }
+
+        void DrawMeta(GameRoot root)
+        {
+            EditorGUILayout.LabelField("이 판 코인", $"주움 {root.DebugRunCoins} · 떨어진 수 {root.DebugCoinsDroppedTotal} · 땅에 {root.DebugCoinCount} / {root.DebugCoinCapacity}");
+            EditorGUILayout.LabelField("이 판 기록", root.DebugRunMarked ? "디버그 판 — 코인을 지갑에 더하지 않음" : "보통 판 — 끝나면 지갑에 더함");
+            if (root.DebugIsOver) EditorGUILayout.LabelField("지갑에 더함", root.DebugRunCredited ? $"+{root.DebugLastCredited}  결과 창 '{root.DebugGameOverCoins}'" : "아직");
+            EditorGUILayout.LabelField("지갑", root.DebugWallet.ToString());
+            EditorGUILayout.LabelField("강화 화면", root.DebugShopOpen ? $"열림 '{root.DebugShopWalletText}'" : "닫힘");
+            EditorGUILayout.LabelField("저장 파일", $"{root.DebugMetaLoadStatus}  {root.DebugSavePath}");
+            if (!string.IsNullOrEmpty(root.DebugSaveBackupPath)) EditorGUILayout.LabelField("깨진 원본 백업", root.DebugSaveBackupPath);
+
+            EditorGUILayout.LabelField("영구 강화 (단계 / 최대 · 다음 가격)");
+            for (int row = 0; row < root.DebugPermanentRowCount; row++)
+            {
+                using (new EditorGUILayout.HorizontalScope())
+                {
+                    long price = root.DebugPermanentPrice(row);
+                    EditorGUILayout.LabelField("  " + root.DebugPermanentId(row), $"{root.DebugPermanentStage(row)} / {root.DebugPermanentMaxStage(row)} · {(price < 0 ? "최대" : price + " 코인")}");
+                    using (new EditorGUI.DisabledScope(price < 0 || root.DebugWallet < price))
+                    {
+                        if (GUILayout.Button(StateChange + "사기", GUILayout.Width(110f))) root.DebugPressBuy(row);
+                    }
+                }
+            }
+            EditorGUILayout.LabelField("이 판에 걸린 값", $"최대 체력 +{root.DebugBaseAdd(StatTarget.MaxHealth):0.#} · 피해 x{root.DebugBaseMul(StatTarget.Damage):0.###} · 이동 x{root.DebugBaseMul(StatTarget.MoveSpeed):0.###} · 반경 x{root.DebugBaseMul(StatTarget.PickupRadius):0.###} · 경험치 x{root.DebugBaseMul(StatTarget.ExperienceGain):0.###} · 재생 +{root.DebugBaseAdd(StatTarget.HealthRegen):0.##}");
+            EditorGUILayout.LabelField("(사기 · 초기화 효과는 다음 판부터)");
+
+            using (new EditorGUILayout.HorizontalScope())
+            {
+                coinAmount = Mathf.Max(1, EditorGUILayout.IntField("코인", coinAmount));
+                if (GUILayout.Button(StateChange + $"지갑 코인 +{coinAmount}")) root.DebugAddCoins(coinAmount);
+            }
+            if (GUILayout.Button(StateChange + "영구 강화 초기화 (모든 단계 0, 코인은 안 돌려줌)")) root.DebugResetPermanent();
+            if (GUILayout.Button(StateChange + "모두 되돌리기 (환불 = 강화 화면 버튼과 같음)")) root.DebugPressRefund();
+            if (GUILayout.Button(StateChange + "저장 파일 다시 읽기 (다음 판부터)")) root.DebugReloadMeta();
+            using (new EditorGUI.DisabledScope(!root.DebugIsOver))
+            {
+                using (new EditorGUILayout.HorizontalScope())
+                {
+                    if (GUILayout.Button("결과 창 [강화] 누르기")) root.DebugPressShop();
+                    if (GUILayout.Button("강화 화면 [닫기]")) root.DebugPressShopClose();
+                }
+            }
+            if (GUILayout.Button("저장 파일 위치 열기"))
+            {
+                string path = root.DebugSavePath;
+                if (System.IO.File.Exists(path)) EditorUtility.RevealInFinder(path);
+                else EditorUtility.RevealInFinder(System.IO.Path.GetDirectoryName(path));
+            }
         }
 
         void DrawText(GameRoot root)

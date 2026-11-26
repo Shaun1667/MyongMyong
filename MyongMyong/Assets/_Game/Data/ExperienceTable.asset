@@ -18,3 +18,6 @@ MonoBehaviour:
   pullSpeed: 9
   collectDistance: 0.4
   gemVisualId: gem_basic
+  maxCoins: 100
+  coinVisualId: coin_basic
+  coinDropOffset: 0.35

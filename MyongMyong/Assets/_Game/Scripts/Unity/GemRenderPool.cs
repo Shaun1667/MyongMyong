@@ -28,6 +28,9 @@ namespace Myong.Unity
         [SerializeField, Min(0f)] float bigPlaceholderRadius = 0.16f;
         [Tooltip("Sprites by visual id. An id with no sprite here is drawn as a solid placeholder dot.")]
         [SerializeField] List<VisualEntry> visuals = new List<VisualEntry>();
+        [Tooltip("On: the placeholder dot uses Placeholder Color (coins). Off: a colour from the visual id (gems). Presentation only.")]
+        [SerializeField] bool usePlaceholderColor;
+        [SerializeField] Color placeholderColor = Color.white;
 
         readonly List<SpriteRenderer> renderers = new List<SpriteRenderer>();
         readonly List<Transform> transforms = new List<Transform>();
@@ -103,7 +106,8 @@ namespace Myong.Unity
             string key = (big ? "big:" : "") + visualId;
             if (!placeholders.TryGetValue(key, out Sprite sprite))
             {
-                sprite = PlaceholderShapes.GemDot(visualId, big ? bigPlaceholderRadius : placeholderRadius);
+                float radius = big ? bigPlaceholderRadius : placeholderRadius;
+                sprite = usePlaceholderColor ? PlaceholderShapes.ColorDot(visualId, radius, (Color32)placeholderColor) : PlaceholderShapes.GemDot(visualId, radius);
                 placeholders.Add(key, sprite);
             }
             return sprite;

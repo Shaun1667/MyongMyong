@@ -139,9 +139,16 @@ namespace Myong.Core
         public readonly float PullSpeed;
         /// <summary>플레이어와 이만큼(유닛) 가까워지면 젬이 경험치가 된다.</summary>
         public readonly float CollectDistance;
+        /// <summary>동시에 떨어져 있을 수 있는 코인 최대 수 = World의 코인 배열 크기(1-12). 0 = 코인 없음. 코인은 젬과 같은 반경 · 속도 · 거리로 줍는다.</summary>
+        public readonly int MaxCoins;
+        /// <summary>코인이 죽은 적 자리에서 오른쪽(+X)으로 비켜 떨어지는 거리(유닛). 같은 자리의 젬에 가려지지 않게.</summary>
+        public readonly float CoinDropOffset;
 
-        public ExperienceRulesData(int[] experienceToNext, int extraPerLevel, int maxGems, float pullSpeed, float collectDistance)
+        public ExperienceRulesData(int[] experienceToNext, int extraPerLevel, int maxGems, float pullSpeed, float collectDistance, int maxCoins = 0, float coinDropOffset = 0f)
         {
+            CoinDropOffset = coinDropOffset;
+            if (maxCoins < 0) throw new ArgumentOutOfRangeException(nameof(maxCoins));
+            MaxCoins = maxCoins;
             if (experienceToNext == null) throw new ArgumentNullException(nameof(experienceToNext));
             if (maxGems < 0) throw new ArgumentOutOfRangeException(nameof(maxGems));
             if (extraPerLevel < 0) throw new ArgumentOutOfRangeException(nameof(extraPerLevel));
@@ -199,7 +206,25 @@ namespace Myong.Core
                 add += world.StatAdd[k];
                 mul *= world.StatMul[k];
             }
-            return (baseValue + add) * mul;
+            // 영구 강화(1-12)는 기본 값을 바꾼다. 0단계면 (기본 + 0) × 1 = 기본 그대로(값이 전과 같다).
+            float based = (baseValue + world.BaseAdd[g]) * world.BaseMul[g];
+            return (based + add) * mul;
+        }
+
+        /// <summary>값이 모두 1인 배열(곱하기 칸의 처음 값).</summary>
+        public static float[] Ones(int count)
+        {
+            var a = new float[count];
+            for (int i = 0; i < count; i++) a[i] = 1f;
+            return a;
+        }
+
+        /// <summary>영구 강화 효과 하나를 기본 값 칸에 건다(판 전체, 판을 만들 때만). 연산만 보고 더하거나 곱한다.</summary>
+        public static void ApplyBase(World world, StatTarget target, StatOp op, float value)
+        {
+            int g = (int)target;
+            if (op == StatOp.Add) world.BaseAdd[g] += value;
+            else world.BaseMul[g] *= value;
         }
 
         /// <summary>정수 값(한 번에 쏘는 수 · 관통): 반올림 후 [min, max]로 자른다.</summary>
@@ -286,6 +311,7 @@ namespace Myong.Core
         {
             world.Level = 1;
             world.Gems = new GemState[experience.MaxGems];
+            world.Coins = new GemState[experience.MaxCoins];
             world.LevelUpChoices = new int[upgrades.ChoicesPerLevelUp];
             world.UpgradeStages = new int[upgrades.Rows.Length];
             world.PassiveStages = new int[passives.Rows.Length];
@@ -390,6 +416,75 @@ namespace Myong.Core
                 else
                 {
                     world.Gems[world.GemCount - 1].Value += value;
+                }
+            }
+        }
+
+        // 코인(1-12): 젬과 같은 줍는 반경 · 끌려오는 속도 · 닿는 거리. 닿으면 이 판의 코인 합(World.CoinsCollected)에 더한다.
+        public void StepCoins(World world)
+        {
+            Vec2 player = world.Player.Position;
+            float radius = PickupRadius(world);
+            float radius2 = radius * radius;
+            float collect2 = experience.CollectDistance * experience.CollectDistance;
+            float step = experience.PullSpeed * tickSeconds;
+
+            int i = 0;
+            while (i < world.CoinCount)
+            {
+                ref GemState c = ref world.Coins[i];
+                c.PreviousPosition = c.Position;
+                Vec2 to = player - c.Position;
+                float d2 = to.SqrMagnitude;
+                if (!c.Attracted && d2 <= radius2) c.Attracted = true;
+                if (c.Attracted)
+                {
+                    float d = (float)Math.Sqrt(d2);
+                    c.Position = d <= step ? player : c.Position + to * (step / d);
+                    d2 = (player - c.Position).SqrMagnitude;
+                }
+                if (d2 <= collect2)
+                {
+                    world.CoinsCollected += c.Value;
+                    int last = world.CoinCount - 1;
+                    if (i != last) world.Coins[i] = world.Coins[last];
+                    world.CoinCount--;
+                    continue; // 맨 끝 코인이 이 자리로 왔다
+                }
+                i++;
+            }
+        }
+
+        /// <summary>
+        /// 이번 틱에 죽은 적(Dead) 자리에 코인을 떨어뜨린다(1-12). 종류의 확률이 1 이상이면 확정, 0과 1 사이면 드롭 난수 스트림에서 하나 뽑는다
+        /// (다른 스트림은 안 건드림). 가득 차면 맨 끝 코인에 더한다(잃지 않게).
+        /// </summary>
+        public void DropCoins(World world)
+        {
+            if (world.Coins.Length == 0) return;
+            for (int i = 0; i < world.EnemyCount; i++)
+            {
+                ref readonly EnemyState e = ref world.Enemies[i];
+                if (!e.Dead) continue;
+                ref readonly EnemyKindData kind = ref enemyKinds[e.Kind];
+                if (kind.CoinValue <= 0 || kind.CoinChance <= 0f) continue;
+                if (kind.CoinChance < 1f && !(world.DropRandom.NextFloat() < kind.CoinChance)) continue;
+                world.CoinsDroppedTotal++;
+                if (world.CoinCount < world.Coins.Length)
+                {
+                    Vec2 at = new Vec2(e.Position.X + experience.CoinDropOffset, e.Position.Y);
+                    world.Coins[world.CoinCount] = new GemState
+                    {
+                        Id = world.AllocateEntityId(),
+                        Position = at,
+                        PreviousPosition = at,
+                        Value = kind.CoinValue,
+                    };
+                    world.CoinCount++;
+                }
+                else
+                {
+                    world.Coins[world.CoinCount - 1].Value += kind.CoinValue;
                 }
             }
         }

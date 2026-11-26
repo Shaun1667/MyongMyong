@@ -22,6 +22,30 @@ namespace Myong.Editor
         public const string JoystickTuningPath = Folder + "/JoystickTuning.asset";
         public const string RunTuningPath = Folder + "/RunTuning.asset";
         public const string FeedbackTuningPath = Folder + "/FeedbackTuning.asset";
+        public const string PermanentUpgradeTablePath = Folder + "/PermanentUpgradeTable.asset";
+
+        // 코인 · 영구 강화 첫 값 (1-12, BALANCE.md와 같은 값. 기준은 에셋)
+        const int InitialMaxCoins = 100;
+        const string InitialCoinVisualId = "coin_basic";
+        const float InitialCoinDropOffset = 0.35f; // 젬에 가려지지 않게(표시를 위한 규칙 값)
+        // 적 id · 코인 확률 · 코인 값 (없는 id = 코인 없음)
+        public static readonly (string id, float chance, int value)[] InitialEnemyCoins =
+        {
+            (InitialEnemyId, 0.05f, 1),
+            ("runner", 0.05f, 1),
+            ("brute", 0.15f, 1),
+            ("elite", 1f, 10),
+        };
+        // 영구 강화: id · 대상 · 연산 · 한 단계 값 · 단계별 가격(길이 = 최대 단계). 글 키 = meta.<id>.name · .desc
+        public static readonly (string id, Myong.Core.StatTarget target, Myong.Core.StatOp op, float value, int[] prices)[] InitialPermanentUpgrades =
+        {
+            ("max_health", Myong.Core.StatTarget.MaxHealth, Myong.Core.StatOp.Add, 10f, new[] { 20, 40, 70, 110, 160 }),
+            ("damage", Myong.Core.StatTarget.Damage, Myong.Core.StatOp.Multiply, 1.05f, new[] { 30, 60, 100, 150, 210 }),
+            ("move_speed", Myong.Core.StatTarget.MoveSpeed, Myong.Core.StatOp.Multiply, 1.03f, new[] { 25, 55, 95 }),
+            ("pickup_radius", Myong.Core.StatTarget.PickupRadius, Myong.Core.StatOp.Multiply, 1.1f, new[] { 15, 35, 60 }),
+            ("growth", Myong.Core.StatTarget.ExperienceGain, Myong.Core.StatOp.Multiply, 1.03f, new[] { 25, 50, 85, 130, 185 }),
+            ("regen", Myong.Core.StatTarget.HealthRegen, Myong.Core.StatOp.Add, 0.1f, new[] { 30, 60, 100, 150, 210 }),
+        };
 
         // 피격 · 사망 연출 첫 값 (BALANCE.md와 같은 값. 기준은 에셋. 표시만 — 규칙에는 영향 없음)
         const float InitialPlayerFlashSeconds = 0.1f;
@@ -229,6 +253,9 @@ if (AssetDatabase.LoadAssetAtPath<WeaponTable>(WeaponTablePath) == null)
                 so.FindProperty("pullSpeed").floatValue = InitialGemPullSpeed;
                 so.FindProperty("collectDistance").floatValue = InitialGemCollectDistance;
                 so.FindProperty("gemVisualId").stringValue = InitialGemVisualId;
+                so.FindProperty("maxCoins").intValue = InitialMaxCoins;
+                so.FindProperty("coinVisualId").stringValue = InitialCoinVisualId;
+                so.FindProperty("coinDropOffset").floatValue = InitialCoinDropOffset;
                 so.ApplyModifiedPropertiesWithoutUndo();
                 AssetDatabase.CreateAsset(asset, ExperienceTablePath);
             }
@@ -313,7 +340,37 @@ if (AssetDatabase.LoadAssetAtPath<WeaponTable>(WeaponTablePath) == null)
                 AssetDatabase.CreateAsset(asset, FeedbackTuningPath);
             }
 
+            if (AssetDatabase.LoadAssetAtPath<PermanentUpgradeTable>(PermanentUpgradeTablePath) == null)
+            {
+                var asset = ScriptableObject.CreateInstance<PermanentUpgradeTable>();
+                var so = new SerializedObject(asset);
+                WritePermanentRows(so);
+                so.ApplyModifiedPropertiesWithoutUndo();
+                AssetDatabase.CreateAsset(asset, PermanentUpgradeTablePath);
+            }
+
             AssetDatabase.SaveAssets();
+        }
+
+        /// <summary>영구 강화 표의 줄에 첫 값을 쓴다(글 키 = meta.&lt;id&gt;.name · .desc).</summary>
+        public static void WritePermanentRows(SerializedObject so)
+        {
+            var rows = so.FindProperty("rows");
+            rows.arraySize = InitialPermanentUpgrades.Length;
+            for (int i = 0; i < InitialPermanentUpgrades.Length; i++)
+            {
+                var p = InitialPermanentUpgrades[i];
+                var row = rows.GetArrayElementAtIndex(i);
+                row.FindPropertyRelative("id").stringValue = p.id;
+                row.FindPropertyRelative("nameKey").stringValue = "meta." + p.id + ".name";
+                row.FindPropertyRelative("descriptionKey").stringValue = "meta." + p.id + ".desc";
+                row.FindPropertyRelative("target").intValue = (int)p.target;
+                row.FindPropertyRelative("op").intValue = (int)p.op;
+                row.FindPropertyRelative("value").floatValue = p.value;
+                var prices = row.FindPropertyRelative("prices");
+                prices.arraySize = p.prices.Length;
+                for (int s = 0; s < p.prices.Length; s++) prices.GetArrayElementAtIndex(s).intValue = p.prices[s];
+            }
         }
     
 
@@ -363,6 +420,16 @@ if (AssetDatabase.LoadAssetAtPath<WeaponTable>(WeaponTablePath) == null)
             row.FindPropertyRelative("invulnerable").boolValue = invulnerable;
             row.FindPropertyRelative("lethalContact").boolValue = lethalContact;
             row.FindPropertyRelative("nameKey").stringValue = nameKey;
+            float coinChance = 0f;
+            int coinValue = 0;
+            foreach (var c in InitialEnemyCoins)
+            {
+                if (c.id != e.id) continue;
+                coinChance = c.chance;
+                coinValue = c.value;
+            }
+            row.FindPropertyRelative("coinChance").floatValue = coinChance;
+            row.FindPropertyRelative("coinValue").intValue = coinValue;
         }
 
         /// <summary>스폰 표의 시간대 · 웨이브 · 돌진 사라지는 거리에 첫 값을 쓴다(스폰 반경 · 최대 수는 건드리지 않음).</summary>

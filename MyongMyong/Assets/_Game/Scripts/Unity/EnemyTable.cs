@@ -31,6 +31,10 @@ namespace Myong.Unity
             public bool lethalContact;
             [Tooltip("Text table key of the enemy's name, shown when it appears (empty = no name shown).")]
             public string nameKey;
+            [Tooltip("Chance (0 to 1) of dropping a coin on death. 1 = always (no random draw), 0 = never.")]
+            [Range(0f, 1f)] public float coinChance;
+            [Tooltip("Coins the dropped coin is worth (0 = no coin). An elite drops one big coin.")]
+            [Min(0)] public int coinValue;
         }
 
         [SerializeField] List<Row> rows = new List<Row>();

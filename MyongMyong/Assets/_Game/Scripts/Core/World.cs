@@ -108,6 +108,24 @@ namespace Myong.Core
         /// <summary>대체 보상(고를 것이 다 떨어졌을 때)을 받은 수.</summary>
         public int FallbackRewardsTaken;
 
+        /// <summary>
+        /// 영구 강화(1-12)가 건 기본 값 칸(대상마다 하나, 판 전체): 더한 값 합 · 곱한 값 곱. 판을 만들 때 한 번 채우고 판 안에서는 바뀌지 않는다(Stats.Reset도 건드리지 않음).
+        /// 실제 값 = ((기본 + BaseAdd) × BaseMul + 강화 · 패시브 더하기) × 강화 · 패시브 곱하기.
+        /// </summary>
+        public float[] BaseAdd = new float[StatTargets.Count];
+        public float[] BaseMul = Stats.Ones(StatTargets.Count);
+
+        /// <summary>드롭(코인) 전용 난수 스트림(RandomStream.Drop).</summary>
+        public Rng DropRandom;
+        /// <summary>떨어져 있는 코인(젬과 같은 모양: Value = 코인 수). 앞에서 CoinCount개만 쓴다(크기 = 코인 최대 수, 판 시작 때 한 번 만든다).</summary>
+        public GemState[] Coins = new GemState[0];
+        public int CoinCount;
+        /// <summary>이 판에서 떨어진 코인 수(개수) · 주운 코인 합(값). 주운 합이 판이 끝날 때 지갑에 더해진다.</summary>
+        public long CoinsDroppedTotal;
+        public long CoinsCollected;
+        /// <summary>이 판에 상태를 바꾸는 디버그를 썼는지(디버그 창 [상태 변경]). 쓴 판은 기록(지갑에 코인 더하기)에서 빠진다.</summary>
+        public bool DebugUsed;
+
 
         /// <summary>판이 어떻게 끝났는지(진행 중 = Playing). 끝나면 Step이 아무것도 하지 않는다.</summary>
         public RunOutcome Outcome;

@@ -96,7 +96,7 @@ namespace Myong.Unity
             for (int i = 0; i < kinds.Length; i++)
             {
                 var row = enemies.Rows[i];
-                kinds[i] = new EnemyKindData(row.moveSpeed, row.radius, row.maxHealth, row.experience, row.contactDamage, row.invulnerable, row.lethalContact);
+                kinds[i] = new EnemyKindData(row.moveSpeed, row.radius, row.maxHealth, row.experience, row.contactDamage, row.invulnerable, row.lethalContact, row.coinChance, row.coinValue);
             }
 
             var list = new List<SpawnPhaseData>(phases.Count);
