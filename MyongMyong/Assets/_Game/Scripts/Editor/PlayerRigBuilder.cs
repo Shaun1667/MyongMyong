@@ -27,6 +27,10 @@ namespace Myong.Editor
         const string RootName = "Root";
         const string SpeedParam = "Speed";
         const string HitParam = "Hit";
+        const string DeadParam = "Dead";
+        // 맞은 순간의 흰색 번쩍임: 스프라이트를 한 색으로 칠하는 재질(없을 때만 만든다). PlayerView가 번쩍일 때만 파츠에 건다.
+        const string FlashShaderPath = "Assets/_Game/Art/Shaders/SpriteFlash.shader";
+        const string FlashMaterialPath = "Assets/_Game/Art/Shaders/SpriteFlash.mat";
         const float RunThreshold = 0.1f;
 
         // ---- layout.json ----
@@ -96,7 +100,7 @@ namespace Myong.Editor
                 .Y("WeaponArms", 0, 1, 0, 0, 0, 1, 0, 0)
                 .Y("ArmBack", 0, 1, 0, 0, 0, 1, 0, 0),
 
-            // 피격: 짧게 뒤로 움찔. (깜빡임은 나중에)
+            // 피격: 짧게 뒤로 움찔. (흰색 번쩍임 · 깜빡임은 PlayerView가 재질 · 색으로)
             new Clip("Player_Hit", 4, 12f, false)
                 .X("Hips", -2, -3, -1, 0)
                 .Y("Torso", -1, -1, 0, 0)
@@ -104,6 +108,21 @@ namespace Myong.Editor
                 .Y("WeaponArms", 1, 1, 0, 0).Rot("WeaponArms", 6, 3, 0, 0)
                 .Y("ArmBack", 1, 1, 0, 0)
                 .X("HairBack", 2, 1, 1, 0),
+
+            // 사망: 뒤로 움찔 → 무릎이 꺾이며 뒤로 넘어가고 → 총이 손에서 빠져 발 앞에 떨어지고 → 누운 채 한 번 튕기고 멈춘다(반복 없음, 마지막 자세로 멈춤).
+            // 몸은 Hips를 0 → 90도로 눕힌다(90도는 도트가 그대로다). 머리가 커서 누우면 머리 옆면이 바닥에 닿게 Hips가 올라간다.
+            // 다리는 Root 아래라 따로 움직인다: 3프레임까지는 땅에 두고(치마 뒤), 4프레임부터 Hips가 돈 만큼 돌려 엉덩이 자리에 붙인다.
+            // 총(Gun)은 2프레임에 손을 떠난다. 값은 눕는 몸(WeaponArms) 기준이라 크다 — 화면에서는 위로 떴다가 발 앞 바닥에 눕는다(끝 = 몸 기준 -90도 = 화면에서 똑바로).
+            new Clip("Player_Death", 10, 12f, false)
+                .X("Hips", -2, -3, -2, 0, 4, 8, 9, 10, 10, 10).Y("Hips", 0, -1, -3, -5, 8, 28, 31, 29, 28, 28).Rot("Hips", 0, 8, 20, 40, 65, 90, 90, 90, 90, 90)
+                .X("LegL", -2, -3, -2, 1, 9, 16, 17, 18, 18, 18).Y("LegL", 0, 0, 0, 0, 2, 22, 25, 23, 22, 22).Rot("LegL", 0, 0, 5, 15, 65, 90, 100, 90, 90, 90)
+                .X("LegR", -2, -3, -2, 1, 1, 2, 3, 4, 4, 4).Y("LegR", 0, 0, 0, 0, 15, 36, 39, 37, 36, 36).Rot("LegR", 0, 0, 5, 15, 70, 90, 105, 90, 90, 90)
+                .Rot("Head", 0, -3, -6, -10, -8, 6, -3, 0, 0, 0)
+                .X("HairBack", 0, 1, 1, 2, 2, 0, -1, 0, 0, 0)
+                .Y("WeaponArms", 1, 1, 0, 0, 0, 0, 0, 0, 0, 0).Rot("WeaponArms", 6, 3, 0, 0, 0, 0, 0, 0, 0, 0)
+                .X("Gun", 0, 0, 14, 27, 17, -23, -30, -26, -28, -28).Y("Gun", 0, 0, 5, 3, -19, -28, -30, -31, -32, -32).Rot("Gun", 0, 0, -5, 0, -45, -95, -82, -87, -90, -90)
+                .Rot("ArmFront", 0, 0, -15, -30, -40, -20, -30, -20, -20, -20)
+                .Rot("ArmBack", 0, 0, 15, 30, 40, 20, 30, 20, 20, 20),
         };
 
         [MenuItem("Myong/Setup/Build Player Rig", priority = 20)]
@@ -136,7 +155,8 @@ namespace Myong.Editor
             SetupUtil.EnsureFolder(AnimFolder);
             var clips = new Dictionary<string, AnimationClip>();
             foreach (var def in Clips()) clips[def.Name] = BuildClip(def, paths, rest);
-            var controller = BuildController(clips["Player_Idle"], clips["Player_Run"], clips["Player_Hit"]);
+            var controller = BuildController(clips["Player_Idle"], clips["Player_Run"], clips["Player_Hit"], clips["Player_Death"]);
+            Material flashMaterial = EnsureFlashMaterial();
 
             // 4. 프리팹
             var material = AssetDatabase.LoadAssetAtPath<Material>(SpriteMaterialPath);
@@ -169,6 +189,7 @@ namespace Myong.Editor
                 var view = player.AddComponent<PlayerView>();
                 SetupUtil.SetReference(view, "flipRoot", root);
                 SetupUtil.SetReference(view, "animator", animator);
+                SetupUtil.SetReference(view, "flashMaterial", flashMaterial);
 
                 SetupUtil.EnsureFolder(System.IO.Path.GetDirectoryName(PrefabPath).Replace('\\', '/'));
                 PrefabUtility.SaveAsPrefabAsset(player, PrefabPath);
@@ -270,11 +291,11 @@ namespace Myong.Editor
             AnimationUtility.SetEditorCurve(clip, EditorCurveBinding.FloatCurve(bonePath, typeof(Transform), property), curve);
         }
 
-        static AnimatorController BuildController(AnimationClip idle, AnimationClip run, AnimationClip hit)
+static AnimatorController BuildController(AnimationClip idle, AnimationClip run, AnimationClip hit, AnimationClip death)
         {
             var controller = AssetDatabase.LoadAssetAtPath<AnimatorController>(ControllerPath);
             if (controller == null) controller = AnimatorController.CreateAnimatorControllerAtPath(ControllerPath);
-            else if (IsUpToDate(controller, idle, run, hit)) return controller; // 같으면 손대지 않는다(다시 만들면 파일 안의 ID가 바뀌어 차이가 생긴다)
+            else if (IsUpToDate(controller, idle, run, hit, death)) return controller; // 같으면 손대지 않는다(다시 만들면 파일 안의 ID가 바뀌어 차이가 생긴다)
 
             // 비우고 다시 채운다(에셋 자체는 그대로라 프리팹의 연결이 유지된다).
             for (int i = controller.parameters.Length - 1; i >= 0; i--) controller.RemoveParameter(i);
@@ -284,6 +305,7 @@ namespace Myong.Editor
 
             controller.AddParameter(SpeedParam, AnimatorControllerParameterType.Float);
             controller.AddParameter(HitParam, AnimatorControllerParameterType.Trigger);
+            controller.AddParameter(DeadParam, AnimatorControllerParameterType.Bool);
 
             var idleState = machine.AddState("Idle");
             idleState.motion = idle;
@@ -291,6 +313,8 @@ namespace Myong.Editor
             runState.motion = run;
             var hitState = machine.AddState("Hit");
             hitState.motion = hit;
+            var deathState = machine.AddState("Death");
+            deathState.motion = death;
             machine.defaultState = idleState;
 
             var toRun = idleState.AddTransition(runState);
@@ -301,36 +325,69 @@ namespace Myong.Editor
             Instant(toIdle, false);
             toIdle.AddCondition(AnimatorConditionMode.Less, RunThreshold, SpeedParam);
 
+            // 사망이 먼저(어느 상태에서든 Dead가 켜지면). 사망 중에는 피격으로 넘어가지 않는다. 끝나면 마지막 자세로 멈춰 있다.
+            var toDeath = machine.AddAnyStateTransition(deathState);
+            Instant(toDeath, false);
+            toDeath.canTransitionToSelf = false;
+            toDeath.AddCondition(AnimatorConditionMode.If, 0f, DeadParam);
+
             var toHit = machine.AddAnyStateTransition(hitState);
             Instant(toHit, false);
             toHit.canTransitionToSelf = true;
             toHit.AddCondition(AnimatorConditionMode.If, 0f, HitParam);
+            toHit.AddCondition(AnimatorConditionMode.IfNot, 0f, DeadParam);
 
             var hitDone = hitState.AddTransition(idleState);
             Instant(hitDone, true);
+
+            // 다시 시작하면(Dead가 꺼지면) 바로 대기로.
+            var revive = deathState.AddTransition(idleState);
+            Instant(revive, false);
+            revive.AddCondition(AnimatorConditionMode.IfNot, 0f, DeadParam);
 
             EditorUtility.SetDirty(controller);
             return controller;
         }
 
-        static bool IsUpToDate(AnimatorController controller, AnimationClip idle, AnimationClip run, AnimationClip hit)
+static bool IsUpToDate(AnimatorController controller, AnimationClip idle, AnimationClip run, AnimationClip hit, AnimationClip death)
         {
             var parameters = controller.parameters;
-            if (parameters.Length != 2 || parameters[0].name != SpeedParam || parameters[1].name != HitParam) return false;
+            if (parameters.Length != 3 || parameters[0].name != SpeedParam || parameters[1].name != HitParam || parameters[2].name != DeadParam) return false;
             var machine = controller.layers[0].stateMachine;
             var states = machine.states;
-            if (states.Length != 3 || machine.anyStateTransitions.Length != 1) return false;
+            var any = machine.anyStateTransitions;
+            if (states.Length != 4 || any.Length != 2) return false;
+            if (any[0].destinationState == null || any[0].destinationState.name != "Death" || any[0].conditions.Length != 1 || any[0].canTransitionToSelf) return false;
+            if (any[1].destinationState == null || any[1].destinationState.name != "Hit" || any[1].conditions.Length != 2) return false;
             foreach (var child in states)
             {
                 var state = child.state;
-                Motion expected = state.name == "Idle" ? idle : state.name == "Run" ? run : state.name == "Hit" ? hit : null;
+                Motion expected = state.name == "Idle" ? idle : state.name == "Run" ? run : state.name == "Hit" ? hit : state.name == "Death" ? death : null;
                 if (expected == null || state.motion != expected || state.transitions.Length != 1) return false;
                 var transition = state.transitions[0];
                 if (transition.duration != 0f) return false;
-                if (state.name != "Hit" && (transition.conditions.Length != 1 || transition.conditions[0].threshold != RunThreshold)) return false;
+                bool moves = state.name == "Idle" || state.name == "Run";
+                if (moves && (transition.conditions.Length != 1 || transition.conditions[0].threshold != RunThreshold)) return false;
+                if (state.name == "Death" && (transition.conditions.Length != 1 || transition.conditions[0].parameter != DeadParam)) return false;
             }
             return machine.defaultState != null && machine.defaultState.name == "Idle";
         }
+
+static Material EnsureFlashMaterial()
+        {
+            var material = AssetDatabase.LoadAssetAtPath<Material>(FlashMaterialPath);
+            if (material != null) return material;
+            var shader = AssetDatabase.LoadAssetAtPath<Shader>(FlashShaderPath);
+            if (shader == null)
+            {
+                Debug.LogError($"[Myong Setup] shader not found: {FlashShaderPath}");
+                return null;
+            }
+            material = new Material(shader) { name = "SpriteFlash" };
+            AssetDatabase.CreateAsset(material, FlashMaterialPath);
+            return material;
+        }
+
 
         
 // 도트 애니메이션은 섞지 않고 바로 바꾼다.

@@ -22,6 +22,7 @@ namespace Myong.Unity
         [SerializeField] UpgradeTable upgradeTable;
         [SerializeField] PassiveTable passiveTable;
         [SerializeField] RunTuning runTuning;
+        [SerializeField] FeedbackTuning feedbackTuning;
 
         [Header("Scene")]
         [SerializeField] PlayerInputReader input;
@@ -74,10 +75,14 @@ namespace Myong.Unity
             describeChoice = simulation.DescribeChoice;
             world = simulation.CreateWorld(seed);
             accumulator = 0f;
-            if (enemyView != null) enemyView.Prepare(enemyRules.MaxAlive, enemyTable);
+            if (enemyView != null) enemyView.Prepare(enemyRules.MaxAlive, enemyTable, feedbackTuning, simulation.TicksPerSecond);
             if (bulletView != null) bulletView.Prepare(weaponRules.MaxBullets, weaponTable);
             if (gemView != null) gemView.Prepare(experienceRules.MaxGems, experienceTable != null ? experienceTable.GemVisualId : string.Empty);
-            if (playerView != null) playerView.ResetView();
+            if (playerView != null)
+            {
+                playerView.Configure(feedbackTuning, simulation.TicksPerSecond);
+                playerView.ResetView();
+            }
         }
 
         void OnDestroy()
@@ -133,16 +138,20 @@ namespace Myong.Unity
 
             // 멈춰 있을 때는 마지막 틱 그대로(보간 없이) 그린다.
             float alpha = world.IsChoosingUpgrade || world.IsOver ? 1f : accumulator / tick;
-            if (playerView != null) playerView.Render(world.Player, alpha, simulation.MoveSpeed(world), world.Tick);
+            // 사망(패배): 시뮬레이션은 이미 멈춰 있다. 사망 애니메이션이 끝난 뒤에 판 끝 창을 띄운다(승리는 바로).
+            bool dead = world.Outcome == RunOutcome.Defeat;
+            if (playerView != null) playerView.Render(world.Player, alpha, simulation.MoveSpeed(world), world.Tick, dead);
             if (healthBar != null) healthBar.Render(world.Player, alpha, simulation.MaxHealthOf(world));
-            if (enemyView != null) enemyView.Render(world.Enemies, world.EnemyCount, alpha, world.Tick);
+            if (enemyView != null) enemyView.Render(world.Enemies, world.EnemyCount, alpha, world.Tick, world.EnemiesKilledTotal);
             if (bulletView != null) bulletView.Render(world.Bullets, world.BulletCount, alpha);
             if (gemView != null) gemView.Render(world.Gems, world.GemCount, alpha);
             if (experienceHud != null) experienceHud.Render(world.Level, world.Experience, simulation.ExperienceToNext(world.Level));
             if (levelUpView != null) levelUpView.Render(world.PendingLevelUps, world.LevelUpChoices, world.LevelUpChoiceCount, describeChoice, world.UpgradeStages, upgradeTable, world.PassiveStages, passiveTable);
             if (passiveHud != null) passiveHud.Render(world.PassiveSlots, world.PassiveSlotCount, world.PassiveStages, passiveTable);
             if (timerHud != null) timerHud.Render(simulation.RunTicks(world), simulation.TicksPerSecond);
-            if (gameOverView != null) gameOverView.Render(world.Result, simulation.SurvivedSeconds(world));
+            bool showResult = world.IsOver && (!dead || playerView == null || playerView.DeathPresentationDone);
+            RunResult shownResult = showResult ? world.Result : default;
+            if (gameOverView != null) gameOverView.Render(shownResult, simulation.SurvivedSeconds(world));
         }
 
         // ---- 디버그 진입점 (에디터 디버그 창 Myong/Debug/Debug Window 가 부른다) ----
@@ -464,7 +473,7 @@ namespace Myong.Unity
 
         public float DebugSurvivedSeconds => simulation.SurvivedSeconds(world);
 
-        /// <summary>표시 확인용: 플레이어가 붉게 번쩍이는 중 / 깜빡임의 어두운 쪽 / 체력 바 도트 수 / 판 끝 창이 떠 있음.</summary>
+        /// <summary>표시 확인용: 플레이어가 흰색으로 번쩍이는 중 / 깜빡임의 어두운 쪽 / 체력 바 도트 수 / 판 끝 창이 떠 있음.</summary>
         public bool DebugPlayerFlashing => playerView != null && playerView.IsFlashing;
 
         public bool DebugPlayerBlinkDim => playerView != null && playerView.IsBlinkDim;
@@ -604,6 +613,53 @@ namespace Myong.Unity
         public void DebugJoystickRelease()
         {
             if (joystick != null) joystick.DebugRelease();
+        }
+
+        // ---- 피격 · 사망 연출 ----
+
+        const float DebugEnemyFlashPreviewSeconds = 0.5f;
+
+        /// <summary>사망 연출 중인지 · 시작한 뒤 몇 초인지 · 사망 애니메이션이 끝까지 갔는지 · 연출이 끝나 창을 띄울 때인지(표시 확인용).</summary>
+        public bool DebugPlayerDead => playerView != null && playerView.IsDead;
+
+        public float DebugDeathSeconds => playerView != null ? playerView.DeathSeconds : 0f;
+
+        public bool DebugDeathAnimationEnded => playerView != null && playerView.DeathAnimationEnded;
+
+        public bool DebugDeathPresentationDone => playerView != null && playerView.DeathPresentationDone;
+
+        /// <summary>지난 프레임에 보인 적 소멸 연출 수 · 이 판의 누계 · 연출 렌더러 수(표시 확인용).</summary>
+        public int DebugDeathEffectsShown => enemyView != null ? enemyView.DeathEffectsShown : 0;
+
+        public long DebugDeathEffectsStarted => enemyView != null ? enemyView.DeathEffectsStarted : 0;
+
+        public int DebugDeathEffectCapacity => enemyView != null ? enemyView.DeathEffectCapacity : 0;
+
+        /// <summary>[상태 변경] 피격 흉내: 적에게 닿은 것처럼 피해 amount + 맞은 뒤 무적 시간(번쩍임 · 깜빡임 · 피격 애니메이션이 실제 피격과 같은 길로 나온다). 0이 되면 사망.</summary>
+        public void DebugSimulateHit(float amount)
+        {
+            if (world.IsOver || amount <= 0f) return;
+            simulation.DamagePlayer(world, amount);
+            if (!world.IsOver) world.Player.InvulnerableUntilTick = world.Tick + simulation.HurtInvulnerableTicks;
+        }
+
+        /// <summary>[상태 변경] 사망 흉내: 남은 체력만큼 피해를 줘 체력 0으로 판을 끝낸다(사망 애니메이션 → 판 끝 창).</summary>
+        public void DebugKillPlayer()
+        {
+            if (world.IsOver) return;
+            simulation.DamagePlayer(world, Math.Max(1f, world.Player.Health));
+        }
+
+        /// <summary>적 번쩍임 보기(보기만): 잠깐 화면의 모든 적을 흰색으로.</summary>
+        public void DebugPreviewEnemyFlash()
+        {
+            if (enemyView != null) enemyView.DebugPreviewFlash(DebugEnemyFlashPreviewSeconds);
+        }
+
+        /// <summary>적 소멸 연출 보기(보기만): 살아 있는 적 자리에 소멸 연출을 낸다(적은 그대로). 낸 수를 돌려준다.</summary>
+        public int DebugPreviewEnemyDeaths()
+        {
+            return enemyView != null ? enemyView.DebugPreviewDeaths(world.Enemies, world.EnemyCount, world.Tick) : 0;
         }
 
         /// <summary>피격 애니메이션만 재생(보기만).</summary>

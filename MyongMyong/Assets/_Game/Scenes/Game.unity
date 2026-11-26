@@ -3715,7 +3715,6 @@ MonoBehaviour:
   m_EditorClassIdentifier: Myong.Unity::Myong.Unity.EnemyRenderPool
   spriteMaterial: {fileID: 2100000, guid: 9dfc825aed78fcd4ba02077103263b40, type: 2}
   sortingOrder: -1
-  hitFlashTicks: 2
   visuals:
   - visualId: enemy_runner
     sprite: {fileID: 0}
@@ -5610,6 +5609,7 @@ MonoBehaviour:
   upgradeTable: {fileID: 11400000, guid: 692884bc72eb9cf40af14adf66584b6b, type: 2}
   passiveTable: {fileID: 11400000, guid: e16d85ff4003fdc46b23dfcf465b5327, type: 2}
   runTuning: {fileID: 11400000, guid: 05475fcc2969d294cb314eee289f4872, type: 2}
+  feedbackTuning: {fileID: 11400000, guid: 1450f5eb302a7124a835d3911acb3c99, type: 2}
   input: {fileID: 1587400898}
   joystick: {fileID: 1565873904}
   playerView: {fileID: 1060889465}

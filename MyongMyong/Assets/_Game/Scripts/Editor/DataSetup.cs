@@ -21,6 +21,19 @@ namespace Myong.Editor
         public const string PassiveTablePath = Folder + "/PassiveTable.asset";
         public const string JoystickTuningPath = Folder + "/JoystickTuning.asset";
         public const string RunTuningPath = Folder + "/RunTuning.asset";
+        public const string FeedbackTuningPath = Folder + "/FeedbackTuning.asset";
+
+        // 피격 · 사망 연출 첫 값 (BALANCE.md와 같은 값. 기준은 에셋. 표시만 — 규칙에는 영향 없음)
+        const float InitialPlayerFlashSeconds = 0.1f;
+        const float InitialPlayerBlinkSeconds = 0.066f;
+        const float InitialPlayerBlinkAlpha = 0.35f;
+        const float InitialGameOverDelaySeconds = 0.5f;
+        const float InitialDeathMaxWaitSeconds = 3f;
+        const float InitialEnemyFlashSeconds = 0.033f;
+        const float InitialEnemyDeathSeconds = 0.2f;
+        const int InitialEnemyDeathSteps = 4;
+        const float InitialEnemyDeathPopScale = 1.25f;
+        const int InitialMaxDeathEffects = 64;
 
         // 판 길이 첫 값 (BALANCE.md와 같은 값. 기준은 에셋) — GDD 4번 승리: 30분 생존
         const float InitialSurvivalSeconds = 1800f;
@@ -266,6 +279,24 @@ if (AssetDatabase.LoadAssetAtPath<WeaponTable>(WeaponTablePath) == null)
                 so.FindProperty("survivalSeconds").floatValue = InitialSurvivalSeconds;
                 so.ApplyModifiedPropertiesWithoutUndo();
                 AssetDatabase.CreateAsset(asset, RunTuningPath);
+            }
+
+            if (AssetDatabase.LoadAssetAtPath<FeedbackTuning>(FeedbackTuningPath) == null)
+            {
+                var asset = ScriptableObject.CreateInstance<FeedbackTuning>();
+                var so = new SerializedObject(asset);
+                so.FindProperty("playerFlashSeconds").floatValue = InitialPlayerFlashSeconds;
+                so.FindProperty("playerBlinkSeconds").floatValue = InitialPlayerBlinkSeconds;
+                so.FindProperty("playerBlinkAlpha").floatValue = InitialPlayerBlinkAlpha;
+                so.FindProperty("gameOverDelaySeconds").floatValue = InitialGameOverDelaySeconds;
+                so.FindProperty("deathMaxWaitSeconds").floatValue = InitialDeathMaxWaitSeconds;
+                so.FindProperty("enemyFlashSeconds").floatValue = InitialEnemyFlashSeconds;
+                so.FindProperty("enemyDeathSeconds").floatValue = InitialEnemyDeathSeconds;
+                so.FindProperty("enemyDeathSteps").intValue = InitialEnemyDeathSteps;
+                so.FindProperty("enemyDeathPopScale").floatValue = InitialEnemyDeathPopScale;
+                so.FindProperty("maxDeathEffects").intValue = InitialMaxDeathEffects;
+                so.ApplyModifiedPropertiesWithoutUndo();
+                AssetDatabase.CreateAsset(asset, FeedbackTuningPath);
             }
 
             AssetDatabase.SaveAssets();

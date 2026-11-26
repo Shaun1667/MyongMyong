@@ -24,8 +24,6 @@ namespace Myong.Unity
 
         [SerializeField] Material spriteMaterial;
         [SerializeField] int sortingOrder;
-        [Tooltip("Ticks an enemy stays white after a bullet hit (presentation only).")]
-        [SerializeField, Min(0)] int hitFlashTicks = 2;
         [Tooltip("Sprites by visual id. Ids with no sprite here are drawn as a solid placeholder shape.")]
         [SerializeField] List<VisualEntry> visuals = new List<VisualEntry>();
 
@@ -37,24 +35,41 @@ namespace Myong.Unity
         Sprite[] kindFlashSprites = new Sprite[0];
         int shown;
 
+        // 맞은 적 번쩍임 · 처치된 적 소멸 연출(수치는 FeedbackTuning, 계산은 FeedbackRules). 연출 렌더러도 미리 만들어 돌려 쓴다.
+        readonly List<SpriteRenderer> effectRenderers = new List<SpriteRenderer>();
+        readonly List<Transform> effectTransforms = new List<Transform>();
+        long[] effectStartTick = new long[0];
+        int[] effectStep = new int[0];
+        bool[] effectActive = new bool[0];
+        int effectCapacity;
+        int nextEffect;
+        EnemyDeathTracker tracker;
+        int hitFlashTicks;
+        int deathTicks;
+        int deathSteps = 1;
+        float deathPopScale = 1f;
+        float previewFlashUntil = -1f;
+
         public int PooledCount => renderers.Count;
 
         /// <summary>지난 Render에서 흰색으로 그린 적 수(확인용).</summary>
         public int FlashingCount { get; private set; }
 
-        /// <summary>판을 시작할 때: 렌더러를 capacity개까지 미리 만들고 종류마다 그림을 정한다.</summary>
-        public void Prepare(int capacity, EnemyTable table)
+        /// <summary>지난 Render에서 보인 소멸 연출 수 · 이 판에서 시작한 소멸 연출 누계 · 연출 렌더러 수(확인용).</summary>
+        public int DeathEffectsShown { get; private set; }
+
+        public long DeathEffectsStarted { get; private set; }
+
+        public int DeathEffectCapacity => effectCapacity;
+
+        /// <summary>판을 시작할 때: 렌더러를 capacity개까지 미리 만들고 종류마다 그림을 정한다. 연출 수치(feedback)도 여기서 받는다.</summary>
+        public void Prepare(int capacity, EnemyTable table, FeedbackTuning feedback, int ticksPerSecond)
         {
             while (renderers.Count < capacity)
             {
-                var go = new GameObject("Enemy" + renderers.Count);
-                go.transform.SetParent(transform, false);
-                var r = go.AddComponent<SpriteRenderer>();
-                if (spriteMaterial != null) r.sharedMaterial = spriteMaterial;
-                r.sortingOrder = sortingOrder;
-                r.enabled = false;
+                SpriteRenderer r = NewRenderer("Enemy" + renderers.Count);
                 renderers.Add(r);
-                transforms.Add(go.transform);
+                transforms.Add(r.transform);
                 shownLook.Add(-1);
             }
 
@@ -72,21 +87,63 @@ namespace Myong.Unity
                 renderers[i].enabled = false;
             }
             shown = 0;
+
+            hitFlashTicks = feedback != null ? FeedbackRules.TicksOf(feedback.EnemyFlashSeconds, ticksPerSecond) : 0;
+            deathTicks = feedback != null ? FeedbackRules.TicksOf(feedback.EnemyDeathSeconds, ticksPerSecond) : 0;
+            deathSteps = feedback != null ? Math.Max(1, feedback.EnemyDeathSteps) : 1;
+            deathPopScale = feedback != null ? feedback.EnemyDeathPopScale : 1f;
+            effectCapacity = feedback != null && deathTicks > 0 ? Math.Max(0, feedback.MaxDeathEffects) : 0;
+            while (effectRenderers.Count < effectCapacity)
+            {
+                SpriteRenderer r = NewRenderer("EnemyDeathEffect" + effectRenderers.Count);
+                effectRenderers.Add(r);
+                effectTransforms.Add(r.transform);
+            }
+            if (effectStartTick.Length < effectRenderers.Count)
+            {
+                effectStartTick = new long[effectRenderers.Count];
+                effectStep = new int[effectRenderers.Count];
+                effectActive = new bool[effectRenderers.Count];
+            }
+            for (int i = 0; i < effectRenderers.Count; i++)
+            {
+                effectActive[i] = false;
+                effectRenderers[i].enabled = false;
+            }
+            nextEffect = 0;
+            DeathEffectsShown = 0;
+            DeathEffectsStarted = 0;
+            previewFlashUntil = -1f;
+            if (tracker == null || tracker.Capacity != capacity) tracker = new EnemyDeathTracker(capacity);
+            else tracker.Reset();
+        }
+
+        SpriteRenderer NewRenderer(string objectName)
+        {
+            var go = new GameObject(objectName);
+            go.transform.SetParent(transform, false);
+            var r = go.AddComponent<SpriteRenderer>();
+            if (spriteMaterial != null) r.sharedMaterial = spriteMaterial;
+            r.sortingOrder = sortingOrder;
+            r.enabled = false;
+            return r;
         }
 
         /// <param name="alpha">직전 틱(0)과 지금 틱(1) 사이 어디를 그릴지.</param>
         /// <param name="tick">World.Tick(맞은 뒤 몇 틱이 지났는지 보는 데 쓴다).</param>
-        public void Render(EnemyState[] enemies, int count, float alpha, long tick)
+        /// <param name="killedTotal">World.EnemiesKilledTotal(오르면 그 사이 빠진 적 자리에 소멸 연출).</param>
+        public void Render(EnemyState[] enemies, int count, float alpha, long tick, long killedTotal)
         {
             int n = Math.Min(count, renderers.Count);
             float z = transform.position.z;
             int flashing = 0;
+            bool preview = Time.unscaledTime < previewFlashUntil;
             for (int i = 0; i < n; i++)
             {
                 ref readonly EnemyState e = ref enemies[i];
                 SpriteRenderer r = renderers[i];
                 bool validKind = e.Kind >= 0 && e.Kind < kindSprites.Length;
-                bool flash = validKind && tick - e.LastHitTick <= hitFlashTicks && kindFlashSprites[e.Kind] != null;
+                bool flash = validKind && kindFlashSprites[e.Kind] != null && (preview || FeedbackRules.EnemyFlashAt(tick, e.LastHitTick, hitFlashTicks));
                 int look = e.Kind * 2 + (flash ? 1 : 0);
                 if (shownLook[i] != look)
                 {
@@ -100,6 +157,70 @@ namespace Myong.Unity
             }
             FlashingCount = flashing;
             HideFrom(n);
+
+            if (tracker != null)
+            {
+                int deaths = tracker.Observe(enemies, count, killedTotal);
+                for (int d = 0; d < deaths; d++) StartEffect(tracker.DeathPosition(d), tracker.DeathKind(d), tick, z);
+            }
+            RenderEffects(tick);
+        }
+
+        // 처치된 자리에 그 적의 흰색 모양을 잠깐 부풀렸다가 계단식으로 줄여 없앤다. 렌더러가 모자라면 가장 오래된 것을 다시 쓴다.
+        void StartEffect(Vec2 position, int kind, long tick, float z)
+        {
+            if (effectCapacity <= 0 || kind < 0 || kind >= kindSprites.Length) return;
+            Sprite sprite = kindFlashSprites[kind] != null ? kindFlashSprites[kind] : kindSprites[kind];
+            if (sprite == null) return;
+            int i = nextEffect;
+            nextEffect = (nextEffect + 1) % effectCapacity;
+            effectRenderers[i].sprite = sprite;
+            effectTransforms[i].position = PixelArt.Snap(position.X, position.Y, z);
+            effectStartTick[i] = tick;
+            effectStep[i] = -1;
+            effectActive[i] = true;
+            DeathEffectsStarted++;
+        }
+
+        void RenderEffects(long tick)
+        {
+            int active = 0;
+            for (int i = 0; i < effectCapacity; i++)
+            {
+                if (!effectActive[i]) continue;
+                SpriteRenderer r = effectRenderers[i];
+                int step = FeedbackRules.DeathStepAt(tick - effectStartTick[i], deathTicks, deathSteps);
+                if (step < 0)
+                {
+                    effectActive[i] = false;
+                    r.enabled = false;
+                    continue;
+                }
+                if (step != effectStep[i])
+                {
+                    effectStep[i] = step;
+                    float s = FeedbackRules.DeathScaleAt(step, deathSteps, deathPopScale);
+                    effectTransforms[i].localScale = new Vector3(s, s, 1f);
+                }
+                if (!r.enabled) r.enabled = true;
+                active++;
+            }
+            DeathEffectsShown = active;
+        }
+
+        /// <summary>보기만(디버그): seconds초 동안 화면의 모든 적을 흰색으로.</summary>
+        public void DebugPreviewFlash(float seconds)
+        {
+            previewFlashUntil = Time.unscaledTime + seconds;
+        }
+
+        /// <summary>보기만(디버그): 살아 있는 적 자리에 소멸 연출을 낸다(적은 그대로). 낸 수를 돌려준다.</summary>
+        public int DebugPreviewDeaths(EnemyState[] enemies, int count, long tick)
+        {
+            int n = Math.Min(count, effectCapacity);
+            float z = transform.position.z;
+            for (int i = 0; i < n; i++) StartEffect(enemies[i].Position, enemies[i].Kind, tick, z);
+            return n;
         }
 
         void HideFrom(int start)

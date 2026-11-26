@@ -449,6 +449,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: Myong.Unity::Myong.Unity.PlayerView
   flipRoot: {fileID: 619130952298268402}
   animator: {fileID: 1709920518605984981}
+  flashMaterial: {fileID: 2100000, guid: 62572eb9867abcc4186fd769c8a3b18a, type: 2}
 --- !u!1 &4912248990830122879
 GameObject:
   m_ObjectHideFlags: 0

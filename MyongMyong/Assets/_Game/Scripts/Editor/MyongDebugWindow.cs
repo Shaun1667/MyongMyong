@@ -159,6 +159,14 @@ namespace Myong.Editor
             }
             if (GUILayout.Button(StateChange + "바로 게임 오버")) root.DebugGameOverNow();
 
+            // 피격 · 사망 연출(1-10)
+            EditorGUILayout.LabelField("연출", $"{(root.DebugPlayerFlashing ? "흰색 번쩍임" : root.DebugPlayerBlinkDim ? "깜빡임(흐림)" : "보통")} · 사망 {(root.DebugPlayerDead ? $"{root.DebugDeathSeconds:0.00}초 (애니메이션 {(root.DebugDeathAnimationEnded ? "끝" : "재생 중")} · 창 {(root.DebugGameOverOpen ? "떠 있음" : "아직")})" : "아님")}");
+            using (new EditorGUI.DisabledScope(root.DebugIsOver))
+            {
+                if (GUILayout.Button(StateChange + $"플레이어 피격 흉내 (피해 {damageAmount:0.#} + 무적 시간)")) root.DebugSimulateHit(damageAmount);
+                if (GUILayout.Button(StateChange + "플레이어 사망 흉내 (체력 0 → 사망 애니메이션 → 게임 오버 창)")) root.DebugKillPlayer();
+            }
+
             using (new EditorGUILayout.HorizontalScope())
             {
                 teleportTarget = EditorGUILayout.Vector2Field("순간이동 위치", teleportTarget);
@@ -275,6 +283,12 @@ namespace Myong.Editor
                 if (GUILayout.Button(StateChange + "지금 스폰 (시간대 비중)")) root.DebugSpawnEnemies(spawnCount);
             }
             if (GUILayout.Button(StateChange + "모두 제거")) root.DebugClearEnemies();
+            EditorGUILayout.LabelField("연출", $"번쩍이는 적 {root.DebugFlashingEnemies} · 소멸 연출 {root.DebugDeathEffectsShown} / {root.DebugDeathEffectCapacity} (누계 {root.DebugDeathEffectsStarted})");
+            using (new EditorGUILayout.HorizontalScope())
+            {
+                if (GUILayout.Button("적 번쩍임 보기")) root.DebugPreviewEnemyFlash();
+                if (GUILayout.Button("적 소멸 연출 보기")) root.DebugPreviewEnemyDeaths();
+            }
             bool paused = root.DebugSpawningPaused;
             if (GUILayout.Button(StateChange + (paused ? "스폰 재개" : "스폰 멈춤"))) root.DebugSetSpawningPaused(!paused);
         }

@@ -200,6 +200,9 @@ namespace Myong.Editor
             SetupUtil.SetReference(gameRoot, "gemView", gemPool);
             SetupUtil.SetReference(gameRoot, "healthBar", healthBar);
             SetupUtil.SetReference(gameRoot, "runTuning", AssetDatabase.LoadAssetAtPath<RunTuning>(DataSetup.RunTuningPath));
+            // 피격 · 사망 연출 수치(없으면 만든다 — 데이터 에셋은 없을 때만 만들고 값은 덮어쓰지 않는다)
+            if (AssetDatabase.LoadAssetAtPath<FeedbackTuning>(DataSetup.FeedbackTuningPath) == null) DataSetup.CreateDataAssets();
+            SetupUtil.SetReference(gameRoot, "feedbackTuning", AssetDatabase.LoadAssetAtPath<FeedbackTuning>(DataSetup.FeedbackTuningPath));
 
             // HUD (텍스트 표 확인용 임시 라벨)
             var hud = FindOrCreate(scene, "HUD");
